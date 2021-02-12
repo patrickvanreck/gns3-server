@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright (C) 2015 GNS3 Technologies Inc.
+# Copyright (C) 2020 GNS3 Technologies Inc.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -17,8 +17,6 @@
 
 
 import configparser
-import time
-import os
 
 from gns3server.config import Config
 
@@ -55,17 +53,17 @@ def write_config(tmpdir, settings):
     return path
 
 
-def test_get_section_config(tmpdir):
+def test_get_section_config(loop, tmpdir):
 
     config = load_config(tmpdir, {
         "Server": {
-            "host": "127.0.0.1"
+            "host": "127.0.0.1",
         }
     })
     assert dict(config.get_section_config("Server")) == {"host": "127.0.0.1"}
 
 
-def test_set_section_config(tmpdir):
+def test_set_section_config(loop, tmpdir):
 
     config = load_config(tmpdir, {
         "Server": {
@@ -73,36 +71,38 @@ def test_set_section_config(tmpdir):
             "local": "false"
         }
     })
+
     assert dict(config.get_section_config("Server")) == {"host": "127.0.0.1", "local": "false"}
     config.set_section_config("Server", {"host": "192.168.1.1", "local": True})
     assert dict(config.get_section_config("Server")) == {"host": "192.168.1.1", "local": "true"}
 
 
-def test_set(tmpdir):
+def test_set(loop, tmpdir):
 
     config = load_config(tmpdir, {
         "Server": {
             "host": "127.0.0.1"
         }
     })
+
     assert dict(config.get_section_config("Server")) == {"host": "127.0.0.1"}
     config.set("Server", "host", "192.168.1.1")
     assert dict(config.get_section_config("Server")) == {"host": "192.168.1.1"}
 
 
-def test_reload(tmpdir):
+def test_reload(loop, tmpdir):
 
     config = load_config(tmpdir, {
         "Server": {
             "host": "127.0.0.1"
         }
     })
-    assert dict(config.get_section_config("Server")) == {"host": "127.0.0.1"}
 
+    assert dict(config.get_section_config("Server")) == {"host": "127.0.0.1"}
     config.set_section_config("Server", {"host": "192.168.1.1"})
     assert dict(config.get_section_config("Server")) == {"host": "192.168.1.1"}
 
-    path = write_config(tmpdir, {
+    write_config(tmpdir, {
         "Server": {
             "host": "192.168.1.2"
         }

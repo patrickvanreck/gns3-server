@@ -21,7 +21,7 @@ Entry point of the server. It's support daemonize the process
 """
 
 # WARNING
-# Due to buggy user machines we choose to put this as the first loading modules
+# Due to buggy user machines we choose to put this as the first loading
 # otherwise the egg cache is initialized in his standard location and
 # if is not writetable the application crash. It's the user fault
 # because one day the user as used sudo to run an egg and break his
@@ -30,6 +30,17 @@ import gns3server.utils.get_resource
 
 import os
 import sys
+import types
+
+# To avoid strange bug later we switch the event loop before any other operation
+if sys.platform.startswith("win"):
+    import asyncio
+    # use the Proactor event loop on Windows
+    loop = asyncio.ProactorEventLoop()
+    asyncio.set_event_loop(loop)
+
+if sys.platform.startswith("win"):
+    sys.modules['termios'] = types.ModuleType('termios')
 
 
 def daemonize():

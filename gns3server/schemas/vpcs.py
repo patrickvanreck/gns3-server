@@ -26,8 +26,8 @@ VPCS_CREATE_SCHEMA = {
             "type": "string",
             "minLength": 1,
         },
-        "vm_id": {
-            "description": "VPCS VM identifier",
+        "node_id": {
+            "description": "Node UUID",
             "oneOf": [
                 {"type": "string",
                  "minLength": 36,
@@ -37,10 +37,14 @@ VPCS_CREATE_SCHEMA = {
             ]
         },
         "console": {
-            "description": "console TCP port",
+            "description": "Console TCP port",
             "minimum": 1,
             "maximum": 65535,
             "type": ["integer", "null"]
+        },
+        "console_type": {
+            "description": "Console type",
+            "enum": ["telnet", "none"]
         },
         "startup_script": {
             "description": "Content of the VPCS startup script",
@@ -62,14 +66,14 @@ VPCS_UPDATE_SCHEMA = {
             "minLength": 1,
         },
         "console": {
-            "description": "console TCP port",
+            "description": "Console TCP port",
             "minimum": 1,
             "maximum": 65535,
             "type": ["integer", "null"]
         },
-        "startup_script": {
-            "description": "Content of the VPCS startup script",
-            "type": ["string", "null"]
+        "console_type": {
+            "description": "Console type",
+            "enum": ["telnet", "none"]
         },
     },
     "additionalProperties": False,
@@ -85,26 +89,30 @@ VPCS_OBJECT_SCHEMA = {
             "type": "string",
             "minLength": 1,
         },
-        "vm_id": {
-            "description": "VPCS VM UUID",
+        "node_id": {
+            "description": "Node UUID",
             "type": "string",
             "minLength": 36,
             "maxLength": 36,
             "pattern": "^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$"
         },
-        "vm_directory": {
-            "decription": "Path to the VM working directory",
+        "node_directory": {
+            "description": "Path to the VM working directory",
             "type": "string"
         },
         "status": {
             "description": "VM status",
-            "enum": ["started", "stopped"]
+            "enum": ["started", "stopped", "suspended"]
         },
         "console": {
-            "description": "console TCP port",
+            "description": "Console TCP port",
             "minimum": 1,
             "maximum": 65535,
-            "type": "integer"
+            "type": ["integer", "null"]
+        },
+        "console_type": {
+            "description": "Console type",
+            "enum": ["telnet", "none"]
         },
         "project_id": {
             "description": "Project UUID",
@@ -113,19 +121,11 @@ VPCS_OBJECT_SCHEMA = {
             "maxLength": 36,
             "pattern": "^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$"
         },
-        "startup_script": {
-            "description": "Content of the VPCS startup script",
-            "type": ["string", "null"]
-        },
-        "startup_script_path": {
-            "description": "Path of the VPCS startup script relative to project directory",
-            "type": ["string", "null"]
-        },
         "command_line": {
-            "description": "Last command line used by GNS3 to start QEMU",
+            "description": "Last command line used by GNS3 to start VPCS",
             "type": "string"
         }
     },
     "additionalProperties": False,
-    "required": ["name", "vm_id", "status", "console", "project_id", "startup_script_path", "command_line"]
+    "required": ["name", "node_id", "status", "console", "console_type", "project_id", "command_line"]
 }

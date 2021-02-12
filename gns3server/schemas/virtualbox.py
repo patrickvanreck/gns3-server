@@ -16,13 +16,16 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
+from .custom_adapters import CUSTOM_ADAPTERS_ARRAY_SCHEMA
+
+
 VBOX_CREATE_SCHEMA = {
     "$schema": "http://json-schema.org/draft-04/schema#",
     "description": "Request validation to create a new VirtualBox VM instance",
     "type": "object",
     "properties": {
-        "vm_id": {
-            "description": "VirtualBox VM instance identifier",
+        "node_id": {
+            "description": "Node UUID",
             "oneOf": [
                 {"type": "string",
                  "minLength": 36,
@@ -32,7 +35,7 @@ VBOX_CREATE_SCHEMA = {
             ]
         },
         "linked_clone": {
-            "description": "either the VM is a linked clone or not",
+            "description": "Whether the VM is a linked clone or not",
             "type": "boolean"
         },
         "name": {
@@ -40,19 +43,23 @@ VBOX_CREATE_SCHEMA = {
             "type": "string",
             "minLength": 1,
         },
+        "usage": {
+            "description": "How to use the VirtualBox VM",
+            "type": "string",
+        },
         "vmname": {
             "description": "VirtualBox VM name (in VirtualBox itself)",
             "type": "string",
             "minLength": 1,
         },
         "adapters": {
-            "description": "number of adapters",
+            "description": "Number of adapters",
             "type": "integer",
             "minimum": 0,
             "maximum": 36,  # maximum given by the ICH9 chipset in VirtualBox
         },
         "use_any_adapter": {
-            "description": "allow GNS3 to use any VirtualBox adapter",
+            "description": "Allow GNS3 to use any VirtualBox adapter",
             "type": "boolean",
         },
         "adapter_type": {
@@ -61,14 +68,14 @@ VBOX_CREATE_SCHEMA = {
             "minLength": 1,
         },
         "console": {
-            "description": "console TCP port",
+            "description": "Console TCP port",
             "minimum": 1,
             "maximum": 65535,
-            "type": "integer"
+            "type": ["integer", "null"]
         },
-        "enable_remote_console": {
-            "description": "enable the remote console",
-            "type": "boolean"
+        "console_type": {
+            "description": "Console type",
+            "enum": ["telnet", "none"]
         },
         "ram": {
             "description": "Amount of RAM",
@@ -77,74 +84,17 @@ VBOX_CREATE_SCHEMA = {
             "type": "integer"
         },
         "headless": {
-            "description": "headless mode",
+            "description": "Headless mode",
             "type": "boolean"
         },
-        "acpi_shutdown": {
-            "description": "ACPI shutdown",
-            "type": "boolean"
+        "on_close": {
+            "description": "Action to execute on the VM is closed",
+            "enum": ["power_off", "shutdown_signal", "save_vm_state"],
         },
+        "custom_adapters": CUSTOM_ADAPTERS_ARRAY_SCHEMA
     },
     "additionalProperties": False,
-    "required": ["name", "vmname", "linked_clone"],
-}
-
-VBOX_UPDATE_SCHEMA = {
-    "$schema": "http://json-schema.org/draft-04/schema#",
-    "description": "Request validation to update a VirtualBox VM instance",
-    "type": "object",
-    "properties": {
-        "name": {
-            "description": "VirtualBox VM instance name",
-            "type": "string",
-            "minLength": 1,
-        },
-        "vmname": {
-            "description": "VirtualBox VM name (in VirtualBox itself)",
-            "type": "string",
-            "minLength": 1,
-        },
-        "adapters": {
-            "description": "number of adapters",
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 36,  # maximum given by the ICH9 chipset in VirtualBox
-        },
-        "use_any_adapter": {
-            "description": "allow GNS3 to use any VirtualBox adapter",
-            "type": "boolean",
-        },
-        "adapter_type": {
-            "description": "VirtualBox adapter type",
-            "type": "string",
-            "minLength": 1,
-        },
-        "console": {
-            "description": "console TCP port",
-            "minimum": 1,
-            "maximum": 65535,
-            "type": "integer"
-        },
-        "enable_remote_console": {
-            "description": "enable the remote console",
-            "type": "boolean"
-        },
-        "ram": {
-            "description": "Amount of RAM",
-            "minimum": 0,
-            "maximum": 65535,
-            "type": "integer"
-        },
-        "headless": {
-            "description": "headless mode",
-            "type": "boolean"
-        },
-        "acpi_shutdown": {
-            "description": "ACPI shutdown",
-            "type": "boolean"
-        },
-    },
-    "additionalProperties": False,
+    "required": ["name", "vmname"],
 }
 
 
@@ -158,8 +108,8 @@ VBOX_OBJECT_SCHEMA = {
             "type": "string",
             "minLength": 1,
         },
-        "vm_id": {
-            "description": "VirtualBox VM instance UUID",
+        "node_id": {
+            "description": "Node UUID",
             "type": "string",
             "minLength": 36,
             "maxLength": 36,
@@ -172,35 +122,39 @@ VBOX_OBJECT_SCHEMA = {
             "maxLength": 36,
             "pattern": "^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$"
         },
+        "usage": {
+            "description": "How to use the VirtualBox VM",
+            "type": "string",
+        },
         "vmname": {
             "description": "VirtualBox VM name (in VirtualBox itself)",
             "type": "string",
             "minLength": 1,
         },
-        "vm_directory": {
-            "decription": "Path to the VM working directory",
+        "status": {
+            "description": "VM status",
+            "enum": ["started", "stopped", "suspended"]
+        },
+        "node_directory": {
+            "description": "Path to the VM working directory",
             "type": ["string", "null"]
         },
-        "enable_remote_console": {
-            "description": "enable the remote console",
-            "type": "boolean"
-        },
         "headless": {
-            "description": "headless mode",
+            "description": "Headless mode",
             "type": "boolean"
         },
-        "acpi_shutdown": {
-            "description": "ACPI shutdown",
-            "type": "boolean"
+        "on_close": {
+            "description": "Action to execute on the VM is closed",
+            "enum": ["power_off", "shutdown_signal", "save_vm_state"],
         },
         "adapters": {
-            "description": "number of adapters",
+            "description": "Number of adapters",
             "type": "integer",
             "minimum": 0,
             "maximum": 36,  # maximum given by the ICH9 chipset in VirtualBox
         },
         "use_any_adapter": {
-            "description": "allow GNS3 to use any VirtualBox adapter",
+            "description": "Allow GNS3 to use any VirtualBox adapter",
             "type": "boolean",
         },
         "adapter_type": {
@@ -209,10 +163,14 @@ VBOX_OBJECT_SCHEMA = {
             "minLength": 1,
         },
         "console": {
-            "description": "console TCP port",
+            "description": "Console TCP port",
             "minimum": 1,
             "maximum": 65535,
-            "type": "integer"
+            "type": ["integer", "null"]
+        },
+        "console_type": {
+            "description": "Console type",
+            "enum": ["telnet", "none"]
         },
         "ram": {
             "description": "Amount of RAM",
@@ -220,7 +178,11 @@ VBOX_OBJECT_SCHEMA = {
             "maximum": 65535,
             "type": "integer"
         },
+        "linked_clone": {
+            "description": "Whether the VM is a linked clone or not",
+            "type": "boolean"
+        },
+        "custom_adapters": CUSTOM_ADAPTERS_ARRAY_SCHEMA
     },
     "additionalProperties": False,
-    "required": ["name", "vm_id", "project_id", "vm_directory"]
 }

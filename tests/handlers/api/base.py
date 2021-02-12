@@ -26,104 +26,82 @@ import os
 
 
 class Query:
+    """
+    Helper to make queries against the test server
+    """
 
-    def __init__(self, loop, host='localhost', port=8001):
-        self._loop = loop
-        self._port = port
-        self._host = host
+    def __init__(self, http_client, prefix='', api_version=None):
+        """
+        :param prefix: Prefix added before path (ex: /compute)
+        :param api_version: Version of the API
+        """
+
+        self._http_client = http_client
+        self._prefix = prefix
+        self._api_version = api_version
 
     def post(self, path, body={}, **kwargs):
-        return self._fetch("POST", path, body, **kwargs)
+        return self._request("POST", path, body, **kwargs)
 
     def put(self, path, body={}, **kwargs):
-        return self._fetch("PUT", path, body, **kwargs)
+        return self._request("PUT", path, body, **kwargs)
 
     def get(self, path, **kwargs):
-        return self._fetch("GET", path, **kwargs)
+        return self._request("GET", path, **kwargs)
 
     def delete(self, path, **kwargs):
-        return self._fetch("DELETE", path, **kwargs)
+        return self._request("DELETE", path, **kwargs)
 
-    def get_url(self, path, version):
-        if version is None:
-            return "http://{}:{}{}".format(self._host, self._port, path)
-        return "http://{}:{}/v{}{}".format(self._host, self._port, version, path)
+    def patch(self, path, **kwargs):
+        return self._request("PATCH", path, **kwargs)
 
-    def _fetch(self, method, path, body=None, api_version=1, **kwargs):
-        """Fetch an url, parse the JSON and return response
+    def get_url(self, path):
+        if self._api_version is None:
+            return "/{}{}".format(self._prefix, path)
+        return "/v{}{}{}".format(self._api_version, self._prefix, path)
 
-        Options:
-            - example if True the session is included inside documentation
-            - raw do not JSON encode the query
-            - api_version Version of API, None if no version
-        """
-        if body is not None and not kwargs.get("raw", False):
+    # async def websocket(self, path):
+    #     """
+    #     Return a websocket connected to the path
+    #     """
+    #
+    #     #self._session = aiohttp.ClientSession()
+    #     response = await self._http_client.ws_connect(self.get_url(path))
+    #     return response
+    #
+    #     # async def go_request(future):
+    #     #     self._session = aiohttp.ClientSession()
+    #     #     response = await self._session.ws_connect(self.get_url(path))
+    #     #     future.set_result(response)
+    #     #
+    #     # future = asyncio.Future()
+    #     # asyncio.ensure_future(go_request(future))
+    #     # self._loop.run_until_complete(future)
+    #     # return future.result()
+
+    async def _request(self, method, path, body=None, raw=False, **kwargs):
+
+        if body is not None and raw is False:
             body = json.dumps(body)
 
-        @asyncio.coroutine
-        def go_request(future):
-            response = yield from aiohttp.request(method, self.get_url(path, api_version), data=body)
-            future.set_result(response)
-        future = asyncio.Future()
-        asyncio.async(go_request(future))
-        self._loop.run_until_complete(future)
-        response = future.result()
+        async with self._http_client.request(method, self.get_url(path), data=body, **kwargs) as response:
+            response.body = await response.read()
+            x_route = response.headers.get('X-Route', None)
+            if x_route is not None:
+                response.route = x_route.replace("/v{}".format(self._api_version), "")
+                response.route = response.route .replace(self._prefix, "")
 
-        @asyncio.coroutine
-        def go_read(future, response):
-            response = yield from response.read()
-            future.set_result(response)
-        future = asyncio.Future()
-        asyncio.async(go_read(future, response))
-        self._loop.run_until_complete(future)
-        response.body = future.result()
-        x_route = response.headers.get('X-Route', None)
-        if x_route is not None:
-            response.route = x_route.replace("/v1", "")
-
-        if response.body is not None:
-            if response.headers.get("CONTENT-TYPE", "") == "application/json":
-                try:
-                    response.json = json.loads(response.body.decode("utf-8"))
-                except ValueError:
-                    response.json = None
-            else:
-                try:
-                    response.html = response.body.decode("utf-8")
-                except UnicodeDecodeError:
-                    response.html = None
-        else:
-            response.json = {}
-            response.html = ""
-        if kwargs.get('example') and os.environ.get("PYTEST_BUILD_DOCUMENTATION") == "1":
-            self._dump_example(method, response.route, api_version, path, body, response)
-        return response
-
-    def _dump_example(self, method, route, api_version, path, body, response):
-        """Dump the request for the documentation"""
-        if path is None:
-            return
-        with open(self._example_file_path(method, route), 'w+') as f:
-            f.write("curl -i -X {} 'http://localhost:3080/v{}{}'".format(method, api_version, path))
-            if body:
-                f.write(" -d '{}'".format(re.sub(r"\n", "", json.dumps(json.loads(body), sort_keys=True))))
-            f.write("\n\n")
-
-            f.write("{} /v{}{} HTTP/1.1\n".format(method, api_version, path))
-            if body:
-                f.write(json.dumps(json.loads(body), sort_keys=True, indent=4))
-            f.write("\n\n\n")
-            f.write("HTTP/1.1 {}\n".format(response.status))
-            for header, value in sorted(response.headers.items()):
-                if header == 'DATE':
-                    # We fix the date otherwise the example is always different
-                    value = "Thu, 08 Jan 2015 16:09:15 GMT"
-                f.write("{}: {}\n".format(header, value))
-            f.write("\n")
-            if response.body:
-                f.write(json.dumps(json.loads(response.body.decode('utf-8')), sort_keys=True, indent=4))
-                f.write("\n")
-
-    def _example_file_path(self, method, path):
-        path = re.sub('[^a-z0-9]', '', path)
-        return "docs/api/examples/{}_{}.txt".format(method.lower(), path)
+            #response.json = {}
+            #response.html = ""
+            if response.body is not None:
+                if response.content_type == "application/json":
+                    try:
+                        response.json = await response.json(encoding="utf-8")
+                    except ValueError:
+                        response.json = None
+                else:
+                    try:
+                        response.html = await response.text("utf-8")
+                    except UnicodeDecodeError:
+                        response.html = None
+            return response

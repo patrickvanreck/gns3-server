@@ -15,7 +15,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-QEMU_PLATFORMS = ["aarch64", "alpha", "arm", "cris", "i386", "lm32", "m68k", "microblaze", "microblazeel", "mips", "mips64", "mips64el", "mipsel", "moxie", "or32", "ppc", "ppc64", "ppcemb", "s390x", "sh4", "sh4eb", "sparc", "sparc64", "tricore", "unicore32", "x86_64", "xtensa", "xtensaeb"]
+from .custom_adapters import CUSTOM_ADAPTERS_ARRAY_SCHEMA
+
+QEMU_PLATFORMS = ["aarch64", "alpha", "arm", "cris", "i386", "lm32", "m68k", "microblaze", "microblazeel", "mips", "mips64", "mips64el", "mipsel", "moxie", "or32", "ppc", "ppc64", "ppcemb", "s390x", "sh4", "sh4eb", "sparc", "sparc64", "tricore", "unicore32", "x86_64", "xtensa", "xtensaeb", ""]
 
 
 QEMU_CREATE_SCHEMA = {
@@ -23,8 +25,8 @@ QEMU_CREATE_SCHEMA = {
     "description": "Request validation to create a new QEMU VM instance",
     "type": "object",
     "properties": {
-        "vm_id": {
-            "description": "QEMU VM identifier",
+        "node_id": {
+            "description": "Node UUID",
             "oneOf": [
                 {"type": "string",
                  "minLength": 36,
@@ -39,11 +41,11 @@ QEMU_CREATE_SCHEMA = {
             "minLength": 1,
         },
         "usage": {
-            "description": "How to use the qemu VM",
+            "description": "How to use the Qemu VM",
             "type": "string",
         },
         "linked_clone": {
-            "description": "either the VM is a linked clone or not",
+            "description": "Whether the VM is a linked clone or not",
             "type": "boolean"
         },
         "qemu_path": {
@@ -56,14 +58,14 @@ QEMU_CREATE_SCHEMA = {
             "enum": QEMU_PLATFORMS + ["null"]
         },
         "console": {
-            "description": "console TCP port",
+            "description": "Console TCP port",
             "minimum": 1,
             "maximum": 65535,
             "type": ["integer", "null"]
         },
         "console_type": {
-            "description": "console type",
-            "enum": ["telnet", "vnc"]
+            "description": "Console type",
+            "enum": ["telnet", "vnc", "spice", "spice+agent", "none"]
         },
         "hda_disk_image": {
             "description": "QEMU hda disk image path",
@@ -121,25 +123,33 @@ QEMU_CREATE_SCHEMA = {
             "description": "QEMU cdrom image checksum",
             "type": ["string", "null"],
         },
+        "bios_image": {
+            "description": "QEMU bios image path",
+            "type": "string",
+        },
+        "bios_image_md5sum": {
+            "description": "QEMU bios image checksum",
+            "type": ["string", "null"],
+        },
         "boot_priority": {
             "description": "QEMU boot priority",
-            "enum": ["c", "d", "n", "cn", "cd"]
+            "enum": ["c", "d", "n", "cn", "cd", "dn", "dc", "nc", "nd"]
         },
         "ram": {
-            "description": "amount of RAM in MB",
+            "description": "Amount of RAM in MB",
             "type": ["integer", "null"]
         },
         "cpus": {
-            "description": "number of vCPUs",
+            "description": "Number of vCPUs",
             "type": ["integer", "null"],
             "minimum": 1,
             "maximum": 255,
         },
         "adapters": {
-            "description": "number of adapters",
+            "description": "Number of adapters",
             "type": ["integer", "null"],
             "minimum": 0,
-            "maximum": 32,
+            "maximum": 275,
         },
         "adapter_type": {
             "description": "QEMU adapter type",
@@ -176,9 +186,13 @@ QEMU_CREATE_SCHEMA = {
             "description": "Use QEMU legagy networking commands (-net syntax)",
             "type": ["boolean", "null"],
         },
-        "acpi_shutdown": {
-            "description": "ACPI shutdown support",
+        "replicate_network_connection_state": {
+            "description": "Replicate the network connection state for links in Qemu",
             "type": ["boolean", "null"],
+        },
+        "on_close": {
+            "description": "Action to execute on the VM is closed",
+            "enum": ["power_off", "shutdown_signal", "save_vm_state"],
         },
         "cpu_throttling": {
             "description": "Percentage of CPU allowed for QEMU",
@@ -200,6 +214,7 @@ QEMU_CREATE_SCHEMA = {
             "description": "Additional QEMU options",
             "type": ["string", "null"],
         },
+        "custom_adapters": CUSTOM_ADAPTERS_ARRAY_SCHEMA
     },
     "additionalProperties": False,
     "required": ["name"],
@@ -216,7 +231,7 @@ QEMU_UPDATE_SCHEMA = {
             "minLength": 1,
         },
         "usage": {
-            "description": "How to use the qemu VM",
+            "description": "How to use the QEMU VM",
             "type": "string",
         },
         "qemu_path": {
@@ -229,14 +244,18 @@ QEMU_UPDATE_SCHEMA = {
             "enum": QEMU_PLATFORMS + ["null"]
         },
         "console": {
-            "description": "console TCP port",
+            "description": "Console TCP port",
             "minimum": 1,
             "maximum": 65535,
             "type": ["integer", "null"]
         },
         "console_type": {
-            "description": "console type",
-            "enum": ["telnet", "vnc"]
+            "description": "Console type",
+            "enum": ["telnet", "vnc", "spice", "spice+agent", "none"]
+        },
+        "linked_clone": {
+            "description": "Whether the VM is a linked clone or not",
+            "type": "boolean"
         },
         "hda_disk_image": {
             "description": "QEMU hda disk image path",
@@ -286,6 +305,14 @@ QEMU_UPDATE_SCHEMA = {
             "description": "QEMU hdd disk image checksum",
             "type": ["string", "null"],
         },
+        "bios_image": {
+            "description": "QEMU bios image path",
+            "type": "string",
+        },
+        "bios_image_md5sum": {
+            "description": "QEMU bios image checksum",
+            "type": ["string", "null"],
+        },
         "cdrom_image": {
             "description": "QEMU cdrom image path",
             "type": "string",
@@ -296,23 +323,23 @@ QEMU_UPDATE_SCHEMA = {
         },
         "boot_priority": {
             "description": "QEMU boot priority",
-            "enum": ["c", "d", "n", "cn", "cd"]
+            "enum": ["c", "d", "n", "cn", "cd", "dn", "dc", "nc", "nd"]
         },
         "ram": {
-            "description": "amount of RAM in MB",
+            "description": "Amount of RAM in MB",
             "type": ["integer", "null"]
         },
         "cpus": {
-            "description": "number of vCPUs",
+            "description": "Number of vCPUs",
             "type": ["integer", "null"],
             "minimum": 1,
             "maximum": 255,
         },
         "adapters": {
-            "description": "number of adapters",
+            "description": "Number of adapters",
             "type": ["integer", "null"],
             "minimum": 0,
-            "maximum": 32,
+            "maximum": 275,
         },
         "adapter_type": {
             "description": "QEMU adapter type",
@@ -349,9 +376,13 @@ QEMU_UPDATE_SCHEMA = {
             "description": "Use QEMU legagy networking commands (-net syntax)",
             "type": ["boolean", "null"],
         },
-        "acpi_shutdown": {
-            "description": "ACPI shutdown support",
+        "replicate_network_connection_state": {
+            "description": "Replicate the network connection state for links in Qemu",
             "type": ["boolean", "null"],
+        },
+        "on_close": {
+            "description": "Action to execute on the VM is closed",
+            "enum": ["power_off", "shutdown_signal", "save_vm_state"],
         },
         "cpu_throttling": {
             "description": "Percentage of CPU allowed for QEMU",
@@ -373,6 +404,7 @@ QEMU_UPDATE_SCHEMA = {
             "description": "Additional QEMU options",
             "type": ["string", "null"],
         },
+        "custom_adapters": CUSTOM_ADAPTERS_ARRAY_SCHEMA
     },
     "additionalProperties": False,
 }
@@ -382,13 +414,13 @@ QEMU_OBJECT_SCHEMA = {
     "description": "Request validation for a QEMU VM instance",
     "type": "object",
     "properties": {
-        "vm_id": {
-            "description": "QEMU VM uuid",
+        "node_id": {
+            "description": "Node UUID",
             "type": "string",
             "minLength": 1,
         },
         "project_id": {
-            "description": "Project uuid",
+            "description": "Project UUID",
             "type": "string",
             "minLength": 1,
         },
@@ -397,12 +429,16 @@ QEMU_OBJECT_SCHEMA = {
             "type": "string",
             "minLength": 1,
         },
+        "status": {
+            "description": "VM status",
+            "enum": ["started", "stopped", "suspended"]
+        },
         "usage": {
-            "description": "How to use the qemu VM",
+            "description": "How to use the QEMU VM",
             "type": "string",
         },
         "qemu_path": {
-            "description": "path to QEMU",
+            "description": "Path to QEMU",
             "type": "string",
             "minLength": 1,
         },
@@ -458,6 +494,14 @@ QEMU_OBJECT_SCHEMA = {
             "description": "QEMU hdd disk image checksum",
             "type": ["string", "null"],
         },
+        "bios_image": {
+            "description": "QEMU bios image path",
+            "type": "string",
+        },
+        "bios_image_md5sum": {
+            "description": "QEMU bios image checksum",
+            "type": ["string", "null"],
+        },
         "cdrom_image": {
             "description": "QEMU cdrom image path",
             "type": "string",
@@ -468,27 +512,27 @@ QEMU_OBJECT_SCHEMA = {
         },
         "boot_priority": {
             "description": "QEMU boot priority",
-            "enum": ["c", "d", "n", "cn", "cd"]
+            "enum": ["c", "d", "n", "cn", "cd", "dn", "dc", "nc", "nd"]
         },
-        "vm_directory": {
-            "decription": "Path to the VM working directory",
+        "node_directory": {
+            "description": "Path to the VM working directory",
             "type": "string"
         },
         "ram": {
-            "description": "amount of RAM in MB",
+            "description": "Amount of RAM in MB",
             "type": "integer"
         },
         "cpus": {
-            "description": "number of vCPUs",
+            "description": "Number of vCPUs",
             "type": ["integer", "null"],
             "minimum": 1,
             "maximum": 255,
         },
         "adapters": {
-            "description": "number of adapters",
+            "description": "Number of adapters",
             "type": "integer",
             "minimum": 0,
-            "maximum": 32,
+            "maximum": 275,
         },
         "adapter_type": {
             "description": "QEMU adapter type",
@@ -502,14 +546,14 @@ QEMU_OBJECT_SCHEMA = {
             "pattern": "^([0-9a-fA-F]{2}[:]){5}([0-9a-fA-F]{2})$"
         },
         "console": {
-            "description": "console TCP port",
+            "description": "Console TCP port",
             "minimum": 1,
             "maximum": 65535,
-            "type": "integer"
+            "type": ["integer", "null"]
         },
         "console_type": {
-            "description": "console type",
-            "enum": ["telnet", "vnc"]
+            "description": "Console type",
+            "enum": ["telnet", "vnc", "spice","spice+agent", "none"]
         },
         "initrd": {
             "description": "QEMU initrd path",
@@ -535,9 +579,17 @@ QEMU_OBJECT_SCHEMA = {
             "description": "Use QEMU legagy networking commands (-net syntax)",
             "type": "boolean",
         },
-        "acpi_shutdown": {
-            "description": "ACPI shutdown support",
+        "replicate_network_connection_state": {
+            "description": "Replicate the network connection state for links in Qemu",
             "type": "boolean",
+        },
+        "on_close": {
+            "description": "Action to execute on the VM is closed",
+            "enum": ["power_off", "shutdown_signal", "save_vm_state"],
+        },
+        "save_vm_state": {
+            "description": "Save VM state support",
+            "type": ["boolean", "null"],
         },
         "cpu_throttling": {
             "description": "Percentage of CPU allowed for QEMU",
@@ -564,7 +616,7 @@ QEMU_OBJECT_SCHEMA = {
         }
     },
     "additionalProperties": False,
-    "required": ["vm_id",
+    "required": ["node_id",
                  "project_id",
                  "name",
                  "usage",
@@ -585,6 +637,8 @@ QEMU_OBJECT_SCHEMA = {
                  "hdd_disk_interface",
                  "cdrom_image",
                  "cdrom_image_md5sum",
+                 "bios_image",
+                 "bios_image_md5sum",
                  "boot_priority",
                  "ram",
                  "cpus",
@@ -598,20 +652,41 @@ QEMU_OBJECT_SCHEMA = {
                  "kernel_image_md5sum",
                  "kernel_command_line",
                  "legacy_networking",
-                 "acpi_shutdown",
+                 "replicate_network_connection_state",
+                 "on_close",
                  "cpu_throttling",
                  "process_priority",
                  "options",
-                 "vm_directory",
-                 "command_line"]
+                 "node_directory",
+                 "command_line",
+                 "status"]
+}
+
+QEMU_RESIZE_SCHEMA = {
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "description": "Resize a disk in a QEMU VM",
+    "type": "object",
+    "properties": {
+        "drive_name": {
+            "description": "Absolute or relative path of the image",
+            "enum": ["hda", "hdb", "hdc", "hdd"]
+        },
+        "extend": {
+            "description": "Number of Megabytes to extend the image",
+            "type": "integer"
+        },
+        # TODO: support shrink? (could be dangerous)
+    },
+    "required": ["drive_name", "extend"],
+    "additionalProperties": False
 }
 
 QEMU_BINARY_FILTER_SCHEMA = {
     "$schema": "http://json-schema.org/draft-04/schema#",
-    "description": "Request validation for a list of qemu capabilities",
+    "description": "Request validation for a list of QEMU capabilities",
     "properties": {
         "archs": {
-            "description": "Architectures to filter binaries by",
+            "description": "Architectures to filter binaries with",
             "type": "array",
             "items": {
                 "enum": QEMU_PLATFORMS
@@ -623,7 +698,7 @@ QEMU_BINARY_FILTER_SCHEMA = {
 
 QEMU_BINARY_LIST_SCHEMA = {
     "$schema": "http://json-schema.org/draft-04/schema#",
-    "description": "Request validation for a list of qemu binaries",
+    "description": "Request validation for a list of QEMU binaries",
     "type": "array",
     "items": {
         "$ref": "#/definitions/QemuPath"
@@ -648,7 +723,7 @@ QEMU_BINARY_LIST_SCHEMA = {
 
 QEMU_CAPABILITY_LIST_SCHEMA = {
     "$schema": "http://json-schema.org/draft-04/schema#",
-    "description": "Request validation for a list of qemu capabilities",
+    "description": "Request validation for a list of QEMU capabilities",
     "properties": {
         "kvm": {
             "description": "Architectures that KVM is enabled for",
@@ -663,7 +738,7 @@ QEMU_CAPABILITY_LIST_SCHEMA = {
 
 QEMU_IMAGE_CREATE_SCHEMA = {
     "$schema": "http://json-schema.org/draft-04/schema#",
-    "description": "Create a new qemu image. Options can be specific to a format. Read qemu-img manual for more information",
+    "description": "Create a new QEMU image. Options can be specific to a format. Read qemu-img manual for more information",
     "type": "object",
     "properties": {
         "qemu_img": {
@@ -679,7 +754,7 @@ QEMU_IMAGE_CREATE_SCHEMA = {
             "enum": ["qcow2", "qcow", "vpc", "vdi", "vmdk", "raw"]
         },
         "size": {
-            "description": "Image size in M",
+            "description": "Image size in Megabytes",
             "type": "integer"
         },
         "preallocation": {
@@ -721,5 +796,27 @@ QEMU_IMAGE_CREATE_SCHEMA = {
         }
     },
     "required": ["qemu_img", "path", "format", "size"],
+    "additionalProperties": False
+}
+
+QEMU_IMAGE_UPDATE_SCHEMA = {
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "description": "Update an existing QEMU image",
+    "type": "object",
+    "properties": {
+        "qemu_img": {
+            "description": "Path to the qemu-img binary",
+            "type": "string"
+        },
+        "path": {
+            "description": "Absolute or relative path of the image",
+            "type": "string"
+        },
+        "extend": {
+            "description": "Number of Megabytes to extend the image",
+            "type": "integer"
+        },
+    },
+    "required": ["qemu_img", "path"],
     "additionalProperties": False
 }

@@ -28,6 +28,7 @@ import re
 
 from gns3server.utils import parse_version
 from gns3server.utils.asyncio import wait_for_process_termination
+from gns3server.utils.asyncio import monitor_process
 from gns3server.utils.asyncio import subprocess_check_output
 from .ubridge_hypervisor import UBridgeHypervisor
 from .ubridge_error import UbridgeError
@@ -62,6 +63,7 @@ class Hypervisor(UBridgeHypervisor):
                     af, socktype, proto, _, sa = res
                     # let the OS find an unused port for the uBridge hypervisor
                     with socket.socket(af, socktype, proto) as sock:
+                        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                         sock.bind(sa)
                         port = sock.getsockname()[1]
                         break
@@ -76,6 +78,7 @@ class Hypervisor(UBridgeHypervisor):
         self._process = None
         self._stdout_file = ""
         self._started = False
+        self._version = ""
 
     @property
     def process(self):
@@ -117,53 +120,70 @@ class Hypervisor(UBridgeHypervisor):
 
         self._path = path
 
-    @asyncio.coroutine
-    def _check_ubridge_version(self):
+    @property
+    def version(self):
         """
-        Checks if the ubridge executable version is >= 0.9.4
+        Returns the uBridge version.
+
+        :returns: string
+        """
+
+        return self._version
+
+    async def _check_ubridge_version(self, env=None):
+        """
+        Checks if the ubridge executable version
         """
         try:
-            output = yield from subprocess_check_output(self._path, "-v", cwd=self._working_dir)
-            match = re.search("ubridge version ([0-9a-z\.]+)", output)
+            output = await subprocess_check_output(self._path, "-v", cwd=self._working_dir, env=env)
+            match = re.search(r"ubridge version ([0-9a-z\.]+)", output)
             if match:
-                version = match.group(1)
-                if parse_version(version) < parse_version("0.9.4"):
-                    raise UbridgeError("uBridge executable version must be >= 0.9.4")
+                self._version = match.group(1)
+                if sys.platform.startswith("win") or sys.platform.startswith("darwin"):
+                    minimum_required_version = "0.9.12"
+                else:
+                    # uBridge version 0.9.14 is required for packet filters 
+                    # to work for IOU nodes.
+                    minimum_required_version = "0.9.14"
+                if parse_version(self._version) < parse_version(minimum_required_version):
+                    raise UbridgeError("uBridge executable version must be >= {}".format(minimum_required_version))
             else:
                 raise UbridgeError("Could not determine uBridge version for {}".format(self._path))
         except (OSError, subprocess.SubprocessError) as e:
             raise UbridgeError("Error while looking for uBridge version: {}".format(e))
 
-    @asyncio.coroutine
-    def start(self):
+    async def start(self):
         """
         Starts the uBridge hypervisor process.
         """
 
-        yield from self._check_ubridge_version()
         env = os.environ.copy()
         if sys.platform.startswith("win"):
-            # add the Npcap directory to $PATH to force Dynamips to use npcap DLL instead of Winpcap (if installed)
+            # add the Npcap directory to $PATH to force uBridge to use npcap DLL instead of Winpcap (if installed)
             system_root = os.path.join(os.path.expandvars("%SystemRoot%"), "System32", "Npcap")
             if os.path.isdir(system_root):
                 env["PATH"] = system_root + ';' + env["PATH"]
+        await self._check_ubridge_version(env)
         try:
             command = self._build_command()
             log.info("starting ubridge: {}".format(command))
             self._stdout_file = os.path.join(self._working_dir, "ubridge.log")
             log.info("logging to {}".format(self._stdout_file))
             with open(self._stdout_file, "w", encoding="utf-8") as fd:
-                self._process = yield from asyncio.create_subprocess_exec(*command,
+                self._process = await asyncio.create_subprocess_exec(*command,
                                                                           stdout=fd,
                                                                           stderr=subprocess.STDOUT,
                                                                           cwd=self._working_dir,
                                                                           env=env)
 
             log.info("ubridge started PID={}".format(self._process.pid))
+            # recv: Bad address is received by uBridge when a docker image stops by itself
+            # see https://github.com/GNS3/gns3-gui/issues/2957
+            #monitor_process(self._process, self._termination_callback)
         except (OSError, subprocess.SubprocessError) as e:
             ubridge_stdout = self.read_stdout()
             log.error("Could not start ubridge: {}\n{}".format(e, ubridge_stdout))
-            raise UBridgeHypervisor("Could not start ubridge: {}\n{}".format(e, ubridge_stdout))
+            raise UbridgeError("Could not start ubridge: {}\n{}".format(e, ubridge_stdout))
 
     def _termination_callback(self, returncode):
         """
@@ -172,31 +192,37 @@ class Hypervisor(UBridgeHypervisor):
         :param returncode: Process returncode
         """
 
-        log.info("uBridge process has stopped, return code: %d", returncode)
         if returncode != 0:
-            self._project.emit("log.error", {"message": "uBridge process has stopped, return code: {}\n{}".format(returncode, self.read_stdout())})
+            error_msg = "uBridge process has stopped, return code: {}\n{}\n".format(returncode, self.read_stdout())
+            log.error(error_msg)
+            self._project.emit("log.error", {"message": error_msg})
+        else:
+            log.info("uBridge process has stopped, return code: %d", returncode)
 
-    @asyncio.coroutine
-    def stop(self):
+    async def stop(self):
         """
         Stops the uBridge hypervisor process.
         """
 
         if self.is_running():
             log.info("Stopping uBridge process PID={}".format(self._process.pid))
-            yield from UBridgeHypervisor.stop(self)
+            await UBridgeHypervisor.stop(self)
             try:
-                yield from wait_for_process_termination(self._process, timeout=3)
+                await wait_for_process_termination(self._process, timeout=3)
             except asyncio.TimeoutError:
-                if self._process.returncode is None:
-                    log.warn("uBridge process {} is still running... killing it".format(self._process.pid))
-                    self._process.kill()
+                if self._process and self._process.returncode is None:
+                    log.warning("uBridge process {} is still running... killing it".format(self._process.pid))
+                    try:
+                        self._process.kill()
+                    except ProcessLookupError:
+                        pass
 
         if self._stdout_file and os.access(self._stdout_file, os.W_OK):
             try:
                 os.remove(self._stdout_file)
             except OSError as e:
                 log.warning("could not delete temporary uBridge log file: {}".format(e))
+        self._process = None
         self._started = False
 
     def read_stdout(self):
@@ -211,7 +237,7 @@ class Hypervisor(UBridgeHypervisor):
                 with open(self._stdout_file, "rb") as file:
                     output = file.read().decode("utf-8", errors="replace")
             except OSError as e:
-                log.warn("could not read {}: {}".format(self._stdout_file, e))
+                log.warning("could not read {}: {}".format(self._stdout_file, e))
         return output
 
     def is_running(self):
@@ -234,5 +260,5 @@ class Hypervisor(UBridgeHypervisor):
         command = [self._path]
         command.extend(["-H", "{}:{}".format(self._host, self._port)])
         if log.getEffectiveLevel() == logging.DEBUG:
-            command.extend(["-d", "2"])
+            command.extend(["-d", "1"])
         return command

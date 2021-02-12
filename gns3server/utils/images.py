@@ -18,15 +18,138 @@
 import os
 import hashlib
 
+from ..config import Config
+from . import force_unix_path
+
+
 import logging
 log = logging.getLogger(__name__)
 
 
-def md5sum(path):
+def list_images(type):
+    """
+    Scan directories for available image for a type
+
+    :param type: emulator type (dynamips, qemu, iou)
+    """
+    files = set()
+    images = []
+
+    server_config = Config.instance().get_section_config("Server")
+    general_images_directory = os.path.expanduser(server_config.get("images_path", "~/GNS3/images"))
+
+    # Subfolder of the general_images_directory specific to this VM type
+    default_directory = default_images_directory(type)
+
+    for directory in images_directories(type):
+
+        # We limit recursion to path outside the default images directory
+        # the reason is in the default directory manage file organization and
+        # it should be flatten to keep things simple
+        recurse = True
+        if os.path.commonprefix([directory, general_images_directory]) == general_images_directory:
+            recurse = False
+
+        directory = os.path.normpath(directory)
+        for root, _, filenames in _os_walk(directory, recurse=recurse):
+            for filename in filenames:
+                path = os.path.join(root, filename)
+                if filename not in files:
+                    if filename.endswith(".md5sum") or filename.startswith("."):
+                        continue
+                    elif ((filename.endswith(".image") or filename.endswith(".bin")) and type == "dynamips") \
+                            or ((filename.endswith(".bin") or filename.startswith("i86bi")) and type == "iou") \
+                            or (not filename.endswith(".bin") and not filename.endswith(".image") and type == "qemu"):
+                        files.add(filename)
+
+                        # It the image is located in the standard directory the path is relative
+                        if os.path.commonprefix([root, default_directory]) != default_directory:
+                            path = os.path.join(root, filename)
+                        else:
+                            path = os.path.relpath(os.path.join(root, filename), default_directory)
+
+                        try:
+                            if type in ["dynamips", "iou"]:
+                                with open(os.path.join(root, filename), "rb") as f:
+                                    # read the first 7 bytes of the file.
+                                    elf_header_start = f.read(7)
+                                # valid IOS images must start with the ELF magic number, be 32-bit, big endian and have an ELF version of 1
+                                if not elf_header_start == b'\x7fELF\x01\x02\x01' and not elf_header_start == b'\x7fELF\x01\x01\x01':
+                                    continue
+
+                            images.append({
+                                "filename": filename,
+                                "path": force_unix_path(path),
+                                "md5sum": md5sum(os.path.join(root, filename)),
+                                "filesize": os.stat(os.path.join(root, filename)).st_size})
+                        except OSError as e:
+                            log.warning("Can't add image {}: {}".format(path, str(e)))
+    return images
+
+
+def _os_walk(directory, recurse=True, **kwargs):
+    """
+    Work like os.walk but if recurse is False just list current directory
+    """
+    if recurse:
+        for root, dirs, files in os.walk(directory, **kwargs):
+            yield root, dirs, files
+    else:
+        files = []
+        for filename in os.listdir(directory):
+            if os.path.isfile(os.path.join(directory, filename)):
+                files.append(filename)
+        yield directory, [], files
+
+
+def default_images_directory(type):
+    """
+    :returns: Return the default directory for a node type
+    """
+    server_config = Config.instance().get_section_config("Server")
+    img_dir = os.path.expanduser(server_config.get("images_path", "~/GNS3/images"))
+    if type == "qemu":
+        return os.path.join(img_dir, "QEMU")
+    elif type == "iou":
+        return os.path.join(img_dir, "IOU")
+    elif type == "dynamips":
+        return os.path.join(img_dir, "IOS")
+    else:
+        raise NotImplementedError("%s node type is not supported", type)
+
+
+def images_directories(type):
+    """
+    Return all directories where we will look for images
+    by priority
+
+    :param type: Type of emulator
+    """
+    server_config = Config.instance().get_section_config("Server")
+
+    paths = []
+    img_dir = os.path.expanduser(server_config.get("images_path", "~/GNS3/images"))
+    type_img_directory = default_images_directory(type)
+    try:
+        os.makedirs(type_img_directory, exist_ok=True)
+        paths.append(type_img_directory)
+    except (OSError, PermissionError):
+        pass
+    for directory in server_config.get("additional_images_path", "").split(";"):
+        paths.append(directory)
+    # Compatibility with old topologies we look in parent directory
+    paths.append(img_dir)
+    # Return only the existing paths
+    return [force_unix_path(p) for p in paths if os.path.exists(p)]
+
+
+def md5sum(path, stopped_event=None):
     """
     Return the md5sum of an image and cache it on disk
 
     :param path: Path to the image
+    :param stopped_event: In case you execute this function on thread and would like to have possibility
+                          to cancel operation pass the `threading.Event`
     :returns: Digest of the image
     """
 
@@ -35,7 +158,9 @@ def md5sum(path):
 
     try:
         with open(path + '.md5sum') as f:
-            return f.read()
+            md5 = f.read().strip()
+            if len(md5) == 32:
+                return md5
     # Unicode error is when user rename an image to .md5sum ....
     except (OSError, UnicodeDecodeError):
         pass
@@ -44,6 +169,9 @@ def md5sum(path):
         m = hashlib.md5()
         with open(path, 'rb') as f:
             while True:
+                if stopped_event is not None and stopped_event.is_set():
+                    log.error("MD5 sum calculation of `{}` has stopped due to cancellation".format(path))
+                    return
                 buf = f.read(128)
                 if not buf:
                     break

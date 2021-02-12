@@ -15,6 +15,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from .filter import FILTER_OBJECT_SCHEMA
+
 
 NIO_SCHEMA = {
     "$schema": "http://json-schema.org/draft-04/schema#",
@@ -43,7 +45,12 @@ NIO_SCHEMA = {
                     "type": "integer",
                     "minimum": 1,
                     "maximum": 65535
-                }
+                },
+                "suspend": {
+                    "type": "boolean",
+                    "description": "Suspend the link"
+                },
+                "filters": FILTER_OBJECT_SCHEMA
             },
             "required": ["type", "lport", "rhost", "rport"],
             "additionalProperties": False
@@ -52,7 +59,7 @@ NIO_SCHEMA = {
             "description": "Generic Ethernet Network Input/Output",
             "properties": {
                 "type": {
-                    "enum": ["nio_generic_ethernet"]
+                    "enum": ["nio_generic_ethernet", "nio_ethernet"]
                 },
                 "ethernet_device": {
                     "description": "Ethernet device name e.g. eth0",

@@ -1,18 +1,32 @@
 GNS3-server
 ===========
 
-.. image:: https://travis-ci.org/GNS3/gns3-server.svg?branch=master
-    :target: https://travis-ci.org/GNS3/gns3-server
+.. image:: https://github.com/GNS3/gns3-server/workflows/testing/badge.svg
+    :target: https://github.com/GNS3/gns3-server/actions?query=workflow%3Atesting
 
 .. image:: https://img.shields.io/pypi/v/gns3-server.svg
     :target: https://pypi.python.org/pypi/gns3-server
 
+.. image:: https://snyk.io/test/github/GNS3/gns3-server/badge.svg
+    :target: https://snyk.io/test/github/GNS3/gns3-server
+
 This is the GNS3 server repository.
 
 The GNS3 server manages emulators such as Dynamips, VirtualBox or Qemu/KVM.
-Clients like the GNS3 GUI controls the server using a HTTP REST API.
+Clients like the `GNS3 GUI <https://github.com/GNS3/gns3-gui/>`_ and the `GNS3 Web UI <https://github.com/GNS3/gns3-web-ui>`_ control the server using a HTTP REST API.
 
-You will need the GNS3 GUI (gns3-gui repository) to control the server.
+Software dependencies
+---------------------
+
+In addition of Python dependencies listed in a section below, other software may be required, recommended or optional.
+
+* `uBridge <https://github.com/GNS3/ubridge/>`_ is required, it interconnects the nodes.
+* `Dynamips <https://github.com/GNS3/dynamips/>`_ is required for running IOS routers (using real IOS images) as well as the internal switches and hubs.
+* `VPCS <https://github.com/GNS3/vpcs/>`_ is recommended, it is a builtin node simulating a very simple computer to perform connectitivy tests using ping, traceroute etc.
+* Qemu is strongly recommended on Linux, as most node types are based on Qemu, for example Cisco IOSv and Arista vEOS.
+* libvirt is recommended (Linux only), as it's needed for the NAT cloud
+* Docker is optional (Linux only), some nodes are based on Docker.
+* i386-libraries of libc and libcrypto are optional (Linux only), they are only needed to run IOU based nodes.
 
 Branches
 --------
@@ -22,8 +36,8 @@ master
 master is the next stable release, you can test it in your day to day activities.
 Bug fixes or small improvements pull requests go here.
 
-1.x (1.4 for example)
-********
+2.x (2.3 for example)
+*********************
 Next major release
 
 *Never* use this branch for production. Pull requests for major new features go here.
@@ -34,6 +48,7 @@ Linux
 GNS3 is perhaps packaged for your distribution:
 
 * Gentoo: https://packages.gentoo.org/package/net-misc/gns3-server
+* Alpine: https://pkgs.alpinelinux.org/package/v3.10/community/x86_64/gns3-server
 
 
 Linux (Debian based)
@@ -44,11 +59,7 @@ You must be connected to the Internet in order to install the dependencies.
 
 Dependencies:
 
-- Python 3.4 or above
-- aiohttp
-- setuptools
-- psutil
-- jsonschema
+- Python 3.6, setuptools and the ones listed `here <https://github.com/GNS3/gns3-server/blob/master/requirements.txt>`_
 
 The following commands will install some of these dependencies:
 
@@ -71,10 +82,20 @@ To run tests use:
    py.test -v
 
 
+Docker container
+****************
+
+For development you can run the GNS3 server in a container
+
+.. code:: bash
+
+    bash scripts/docker_dev_server.sh
+
+
 Run as daemon (Unix only)
 **************************
 
-You will found init sample script for various systems
+You will find init sample scripts for various systems
 inside the init directory.
 
 Usefull options:
@@ -83,14 +104,14 @@ Usefull options:
 * --log logfile: store output in a logfile
 * --pid pidfile: store the pid of the running process in a file and prevent double execution
 
-All the init script require the creation of a GNS3 user. You can change it to another user.
+All init scripts require the creation of a GNS3 user. You can change it to another user.
 
 .. code:: bash
 
     sudo adduser gns3
 
 upstart
-~~~~~~~
+-------
 
 For ubuntu < 15.04
 
@@ -103,7 +124,8 @@ You need to copy init/gns3.conf.upstart to /etc/init/gns3.conf
 
 
 systemd
-~~~~~~~~
+-------
+
 You need to copy init/gns3.service.systemd to /lib/systemd/system/gns3.service
 
 .. code:: bash
@@ -153,15 +175,14 @@ Mac OS X
 
 Please use our DMG package for a simple installation.
 
-If you want to test the current git version or contribute to the project.
-
-You can follow this instructions with virtualenwrapper: http://virtualenvwrapper.readthedocs.org/
+If you want to test the current git version or contribute to the project,
+you can follow these instructions with virtualenwrapper: http://virtualenvwrapper.readthedocs.org/
 and homebrew: http://brew.sh/.
 
 .. code:: bash
 
    brew install python3
-   mkvirtualenv gns3-server --python=/usr/local/bin/python3.4
+   mkvirtualenv gns3-server --python=/usr/local/bin/python3.5
    python3 setup.py install
    gns3server
 
@@ -206,3 +227,8 @@ If you want test coverage:
 .. code:: bash
 
     py.test --cov-report term-missing --cov=gns3server
+
+Security issues
+----------------
+Please contact us using contact form available here:
+http://docs.gns3.com/1ON9JBXSeR7Nt2-Qum2o3ZX0GU86BZwlmNSUgvmqNWGY/index.html

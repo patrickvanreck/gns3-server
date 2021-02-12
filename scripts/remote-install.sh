@@ -16,7 +16,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #
-# Install GNS3 on a remote Ubuntu 14.04 LTS server
+# Install GNS3 on a remote Ubuntu LTS server
 # This create a dedicated user and setup all the package
 # and optionnaly a VPN
 #
@@ -25,21 +25,19 @@ function help {
   echo "Usage:" >&2
   echo "--with-openvpn: Install Open VPN" >&2
   echo "--with-iou: Install IOU" >&2
-  echo "--with-i386-repository: Add i386 repositories require by IOU if they are not available on the system. Warning this will replace your source.list in order to use official ubuntu mirror" >&2
+  echo "--with-i386-repository: Add the i386 repositories required by IOU if they are not already available on the system. Warning: this will replace your source.list in order to use the official Ubuntu mirror" >&2
   echo "--unstable: Use the GNS3 unstable repository"
   echo "--help: This help" >&2
 }
 
 function log {
-  tput setaf 2
   echo "=> $1"  >&2
-  tput sgr0
 }
 
-lsb_release -d | grep "Ubuntu 14.04" > /dev/null
+lsb_release -d | grep "LTS" > /dev/null
 if [ $? != 0 ]
 then
-  echo "You can use this script on Ubuntu 14.04 LTS only"
+  echo "This script can only be run on a Linux Ubuntu LTS release"
   exit 1
 fi
 
@@ -89,48 +87,65 @@ done
 set -e
 
 export DEBIAN_FRONTEND="noninteractive"
+UBUNTU_CODENAME=`lsb_release -c -s`
 
 log "Add GNS3 repository"
 
-if [ $UNSTABLE == 1 ]
+if [ "$UBUNTU_CODENAME" == "trusty" ]
 then
-cat <<EOFLIST > /etc/apt/sources.list.d/gns3.list
-deb http://ppa.launchpad.net/gns3/unstable/ubuntu trusty main
-deb-src http://ppa.launchpad.net/gns3/unstable/ubuntu trusty main
-deb http://ppa.launchpad.net/gns3/qemu/ubuntu trusty main
-deb-src http://ppa.launchpad.net/gns3/qemu/ubuntu trusty main
+    if [ $UNSTABLE == 1 ]
+    then
+        cat <<EOFLIST > /etc/apt/sources.list.d/gns3.list
+deb http://ppa.launchpad.net/gns3/unstable/ubuntu $UBUNTU_CODENAME main
+deb-src http://ppa.launchpad.net/gns3/unstable/ubuntu $UBUNTU_CODENAME main
+deb http://ppa.launchpad.net/gns3/qemu/ubuntu $UBUNTU_CODENAME main
+deb-src http://ppa.launchpad.net/gns3/qemu/ubuntu $UBUNTU_CODENAME main
 EOFLIST
+    else
+        cat <<EOFLIST > /etc/apt/sources.list.d/gns3.list
+deb http://ppa.launchpad.net/gns3/ppa/ubuntu $UBUNTU_CODENAME main
+deb-src http://ppa.launchpad.net/gns3/ppa/ubuntu $UBUNTU_CODENAME main
+deb http://ppa.launchpad.net/gns3/qemu/ubuntu $UBUNTU_CODENAME main 
+deb-src http://ppa.launchpad.net/gns3/qemu/ubuntu $UBUNTU_CODENAME main 
+EOFLIST
+    fi
 else
-cat <<EOFLIST > /etc/apt/sources.list.d/gns3.list
-deb http://ppa.launchpad.net/gns3/ppa/ubuntu trusty main
-deb-src http://ppa.launchpad.net/gns3/ppa/ubuntu trusty main
-deb http://ppa.launchpad.net/gns3/qemu/ubuntu trusty main 
-deb-src http://ppa.launchpad.net/gns3/qemu/ubuntu trusty main 
+    if [ $UNSTABLE == 1 ]
+    then
+        cat <<EOFLIST > /etc/apt/sources.list.d/gns3.list
+deb http://ppa.launchpad.net/gns3/unstable/ubuntu $UBUNTU_CODENAME main
+deb-src http://ppa.launchpad.net/gns3/unstable/ubuntu $UBUNTU_CODENAME main
 EOFLIST
+    else
+       cat <<EOFLIST > /etc/apt/sources.list.d/gns3.list
+deb http://ppa.launchpad.net/gns3/ppa/ubuntu $UBUNTU_CODENAME main
+deb-src http://ppa.launchpad.net/gns3/ppa/ubuntu $UBUNTU_CODENAME main
+EOFLIST
+    fi
 fi
 
 if [ $I386_REPO == 1 ]
 then
     cat <<EOFLIST2  >> /etc/apt/sources.list
 ###### Ubuntu Main Repos
-deb http://archive.ubuntu.com/ubuntu/ trusty main universe multiverse 
-deb-src http://archive.ubuntu.com/ubuntu/ trusty main universe multiverse 
+deb http://archive.ubuntu.com/ubuntu/ $UBUNTU_CODENAME main universe multiverse 
+deb-src http://archive.ubuntu.com/ubuntu/ $UBUNTU_CODENAME main universe multiverse 
 
 ###### Ubuntu Update Repos
-deb http://archive.ubuntu.com/ubuntu/ trusty-security main universe multiverse 
-deb http://archive.ubuntu.com/ubuntu/ trusty-updates main universe multiverse 
-deb-src http://archive.ubuntu.com/ubuntu/ trusty-security main universe multiverse 
-deb-src http://archive.ubuntu.com/ubuntu/ trusty-updates main universe multiverse 
+deb http://archive.ubuntu.com/ubuntu/ ${UBUNTU_CODENAME}-security main universe multiverse 
+deb http://archive.ubuntu.com/ubuntu/ ${UBUNTU_CODENAME}-updates main universe multiverse 
+deb-src http://archive.ubuntu.com/ubuntu/ ${UBUNTU_CODENAME}-security main universe multiverse 
+deb-src http://archive.ubuntu.com/ubuntu/ ${UBUNTU_CODENAME}-updates main universe multiverse 
 EOFLIST2
 fi
 
-apt-key adv --keyserver keyserver.ubuntu.com --recv-keys A2E3EF7B
+apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys A2E3EF7B
 
 log "Update system packages"
 apt-get update
 
 log "Upgrade packages"
-apt-get upgrade -y
+apt-get upgrade --yes --force-yes -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"
 
 log " Install GNS3 packages"
 apt-get install -y gns3-server
@@ -140,6 +155,10 @@ if [ ! -d "/opt/gns3/" ]
 then
   useradd -d /opt/gns3/ -m gns3
 fi
+
+
+log "Add GNS3 to the ubridge group"
+usermod -aG ubridge gns3
 
 log "Install docker"
 if [ ! -f "/usr/bin/docker" ]
@@ -180,15 +199,20 @@ host = 0.0.0.0
 port = 3080 
 images_path = /opt/gns3/images
 projects_path = /opt/gns3/projects
+appliances_path = /opt/gns3/appliances
+configs_path = /opt/gns3/configs
 report_errors = True
 
 [Qemu]
 enable_kvm = True
+require_kvm = True
 EOFC
 
 chown -R gns3:gns3 /etc/gns3
 chmod -R 700 /etc/gns3
 
+if [ "$UBUNTU_CODENAME" == "trusty" ]
+then
 cat <<EOFI > /etc/init/gns3.conf
 description "GNS3 server"
 author      "GNS3 Team"
@@ -223,6 +247,39 @@ service gns3 stop
 set -e
 service gns3 start
 
+else
+    # Install systemd service
+    cat <<EOFI > /lib/systemd/system/gns3.service
+[Unit]
+Description=GNS3 server
+After=network-online.target
+Wants=network-online.target
+Conflicts=shutdown.target
+
+[Service]
+User=gns3
+Group=gns3
+PermissionsStartOnly=true
+EnvironmentFile=/etc/environment
+ExecStartPre=/bin/mkdir -p /var/log/gns3 /var/run/gns3
+ExecStartPre=/bin/chown -R gns3:gns3 /var/log/gns3 /var/run/gns3
+ExecStart=/usr/bin/gns3server --log /var/log/gns3/gns3.log
+ExecReload=/bin/kill -s HUP $MAINPID
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=16384
+
+[Install]
+WantedBy=multi-user.target
+EOFI
+    chmod 755 /lib/systemd/system/gns3.service
+    chown root:root /lib/systemd/system/gns3.service
+
+    log "Start GNS3 service"
+    systemctl enable gns3
+    systemctl start gns3
+fi
+
 log "GNS3 installed with success"
 
 if [ $USE_VPN == 1 ]
@@ -239,6 +296,7 @@ report_errors = True
 
 [Qemu]
 enable_kvm = True
+require_kvm = True
 EOFSERVER
 
 log "Install packages for Open VPN"
@@ -249,7 +307,7 @@ apt-get install -y     \
   dnsutils             \
   nginx-light
 
-MY_IP_ADDR=$(dig @ns1.google.com -t txt o-o.myaddr.l.google.com +short | sed 's/"//g')
+MY_IP_ADDR=$(dig @ns1.google.com -t txt o-o.myaddr.l.google.com +short -4 | sed 's/"//g')
 
 log "IP detected: $MY_IP_ADDR"
 

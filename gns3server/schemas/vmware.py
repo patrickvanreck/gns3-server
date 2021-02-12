@@ -15,21 +15,23 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from .custom_adapters import CUSTOM_ADAPTERS_ARRAY_SCHEMA
+
 
 VMWARE_CREATE_SCHEMA = {
     "$schema": "http://json-schema.org/draft-04/schema#",
     "description": "Request validation to create a new VMware VM instance",
     "type": "object",
     "properties": {
-        "vm_id": {
-            "description": "VMware VM instance identifier",
+        "node_id": {
+            "description": "Node UUID",
             "type": "string",
             "minLength": 36,
             "maxLength": 36,
             "pattern": "^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$"
         },
         "linked_clone": {
-            "description": "either the VM is a linked clone or not",
+            "description": "Whether the VM is a linked clone or not",
             "type": "boolean"
         },
         "name": {
@@ -37,31 +39,35 @@ VMWARE_CREATE_SCHEMA = {
             "type": "string",
             "minLength": 1,
         },
+        "usage": {
+            "description": "How to use the VMware VM",
+            "type": "string",
+        },
         "vmx_path": {
-            "description": "path to the vmx file",
+            "description": "Path to the vmx file",
             "type": "string",
             "minLength": 1,
         },
         "console": {
-            "description": "console TCP port",
+            "description": "Console TCP port",
             "minimum": 1,
             "maximum": 65535,
-            "type": "integer"
+            "type": ["integer", "null"]
         },
-        "enable_remote_console": {
-            "description": "enable the remote console",
-            "type": "boolean"
+        "console_type": {
+            "description": "Console type",
+            "enum": ["telnet", "none"]
         },
         "headless": {
-            "description": "headless mode",
+            "description": "Headless mode",
             "type": "boolean"
         },
-        "acpi_shutdown": {
-            "description": "ACPI shutdown",
-            "type": "boolean"
+        "on_close": {
+            "description": "Action to execute on the VM is closed",
+            "enum": ["power_off", "shutdown_signal", "save_vm_state"],
         },
         "adapters": {
-            "description": "number of adapters",
+            "description": "Number of adapters",
             "type": "integer",
             "minimum": 0,
             "maximum": 10,  # maximum adapters support by VMware VMs
@@ -71,73 +77,14 @@ VMWARE_CREATE_SCHEMA = {
             "type": "string",
             "minLength": 1,
         },
-        "use_ubridge": {
-            "description": "use uBridge for network connections",
-            "type": "boolean",
-        },
         "use_any_adapter": {
-            "description": "allow GNS3 to use any VMware adapter",
+            "description": "Allow GNS3 to use any VMware adapter",
             "type": "boolean",
         },
+        "custom_adapters": CUSTOM_ADAPTERS_ARRAY_SCHEMA
     },
     "additionalProperties": False,
     "required": ["name", "vmx_path", "linked_clone"],
-}
-
-VMWARE_UPDATE_SCHEMA = {
-    "$schema": "http://json-schema.org/draft-04/schema#",
-    "description": "Request validation to update a VMware VM instance",
-    "type": "object",
-    "properties": {
-        "name": {
-            "description": "VMware VM instance name",
-            "type": "string",
-            "minLength": 1,
-        },
-        "vmx_path": {
-            "description": "path to the vmx file",
-            "type": "string",
-            "minLength": 1,
-        },
-        "console": {
-            "description": "console TCP port",
-            "minimum": 1,
-            "maximum": 65535,
-            "type": "integer"
-        },
-        "enable_remote_console": {
-            "description": "enable the remote console",
-            "type": "boolean"
-        },
-        "headless": {
-            "description": "headless mode",
-            "type": "boolean"
-        },
-        "acpi_shutdown": {
-            "description": "ACPI shutdown",
-            "type": "boolean"
-        },
-        "adapters": {
-            "description": "number of adapters",
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 10,  # maximum adapters support by VMware VMs
-        },
-        "adapter_type": {
-            "description": "VMware adapter type",
-            "type": "string",
-            "minLength": 1,
-        },
-        "use_ubridge": {
-            "description": "use uBridge for network connections",
-            "type": "boolean",
-        },
-        "use_any_adapter": {
-            "description": "allow GNS3 to use any VMware adapter",
-            "type": "boolean",
-        },
-    },
-    "additionalProperties": False,
 }
 
 
@@ -151,15 +98,23 @@ VMWARE_OBJECT_SCHEMA = {
             "type": "string",
             "minLength": 1,
         },
-        "vm_id": {
-            "description": "VMware VM instance UUID",
+        "usage": {
+            "description": "How to use the VMware VM",
+            "type": "string",
+        },
+        "node_id": {
+            "description": "Node UUID",
             "type": "string",
             "minLength": 36,
             "maxLength": 36,
             "pattern": "^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$"
         },
-        "vm_directory": {
-            "decription": "Path to the VM working directory",
+        "status": {
+            "description": "VM status",
+            "enum": ["started", "stopped", "suspended"]
+        },
+        "node_directory": {
+            "description": "Path to the node working directory",
             "type": ["string", "null"]
         },
         "project_id": {
@@ -170,24 +125,20 @@ VMWARE_OBJECT_SCHEMA = {
             "pattern": "^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$"
         },
         "vmx_path": {
-            "description": "path to the vmx file",
+            "description": "Path to the vmx file",
             "type": "string",
             "minLength": 1,
         },
-        "enable_remote_console": {
-            "description": "enable the remote console",
-            "type": "boolean"
-        },
         "headless": {
-            "description": "headless mode",
+            "description": "Headless mode",
             "type": "boolean"
         },
-        "acpi_shutdown": {
-            "description": "ACPI shutdown",
-            "type": "boolean"
+        "on_close": {
+            "description": "Action to execute on the VM is closed",
+            "enum": ["power_off", "shutdown_signal", "save_vm_state"],
         },
         "adapters": {
-            "description": "number of adapters",
+            "description": "Number of adapters",
             "type": "integer",
             "minimum": 0,
             "maximum": 10,  # maximum adapters support by VMware VMs
@@ -197,21 +148,25 @@ VMWARE_OBJECT_SCHEMA = {
             "type": "string",
             "minLength": 1,
         },
-        "use_ubridge": {
-            "description": "use uBridge for network connections",
-            "type": "boolean",
-        },
         "use_any_adapter": {
-            "description": "allow GNS3 to use any VMware adapter",
+            "description": "Allow GNS3 to use any VMware adapter",
             "type": "boolean",
         },
         "console": {
-            "description": "console TCP port",
+            "description": "Console TCP port",
             "minimum": 1,
             "maximum": 65535,
-            "type": "integer"
+            "type": ["integer", "null"]
         },
+        "console_type": {
+            "description": "Console type",
+            "enum": ["telnet", "none"]
+        },
+        "linked_clone": {
+            "description": "Whether the VM is a linked clone or not",
+            "type": "boolean"
+        },
+        "custom_adapters": CUSTOM_ADAPTERS_ARRAY_SCHEMA
     },
-    "additionalProperties": False,
-    "required": ["name", "vm_id", "project_id"]
+    "additionalProperties": False
 }

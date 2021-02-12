@@ -110,8 +110,11 @@ def find_vnetlib_registry(regkey):
         # default path not used, let's look in the registry
         hkey = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, regkey)
         install_path, _ = winreg.QueryValueEx(hkey, "InstallPath")
-        vnetlib_path = os.path.join(install_path, "vnetlib.exe")
         winreg.CloseKey(hkey)
+        vnetlib_path = os.path.join(install_path, "vnetlib64.exe")
+        if os.path.exists(vnetlib_path):
+            return vnetlib_path
+        vnetlib_path = os.path.join(install_path, "vnetlib.exe")
         if os.path.exists(vnetlib_path):
             return vnetlib_path
     except OSError:
@@ -121,23 +124,36 @@ def find_vnetlib_registry(regkey):
 
 def find_vnetlib_on_windows():
 
-    vnetlib_path = shutil.which("vnetlib")
+    # look for vnetlib in PATH
+    vnetlib_path = shutil.which("vnetlib64")
+
     if vnetlib_path is None:
-        # look for vnetlib.exe in default VMware Workstation directory
-        vnetlib_ws = os.path.expandvars(r"%PROGRAMFILES(X86)%\VMware\VMware Workstation\vnetlib.exe")
+        vnetlib_path = shutil.which("vnetlib")
+
+    if vnetlib_path is None:
+        # look for vnetlib using the directory listed in the registry (for VMware Workstation)
+        vnetlib_path = find_vnetlib_registry(r"SOFTWARE\Wow6432Node\VMware, Inc.\VMware Workstation")
+
+    if vnetlib_path is None:
+        # look for vnetlib using the directory listed in the registry (for VMware Player)
+        vnetlib_path = find_vnetlib_registry(r"SOFTWARE\Wow6432Node\VMware, Inc.\VMware Player")
+
+    if vnetlib_path is None:
+        # look for vnetlib in default VMware Workstation directory
+        vnetlib_ws = os.path.expandvars(r"%PROGRAMFILES(X86)%\VMware\VMware Workstation\vnetlib64.exe")
+        if not os.path.exists(vnetlib_ws):
+            vnetlib_ws = os.path.expandvars(r"%PROGRAMFILES(X86)%\VMware\VMware Workstation\vnetlib.exe")
         if os.path.exists(vnetlib_ws):
             vnetlib_path = vnetlib_ws
-        else:
-            # look for vnetlib.exe using the directory listed in the registry
-            vnetlib_path = find_vnetlib_registry(r"SOFTWARE\Wow6432Node\VMware, Inc.\VMware Workstation")
-        if vnetlib_path is None:
-            # look for vnetlib.exe in default VMware VIX directory
+
+    if vnetlib_path is None:
+        # look for vnetlib in default VMware VIX directory
+        vnetlib_vix = os.path.expandvars(r"%PROGRAMFILES(X86)%\VMware\VMware VIX\vnetlib64.exe")
+        if not os.path.exists(vnetlib_vix):
             vnetlib_vix = os.path.expandvars(r"%PROGRAMFILES(X86)%\VMware\VMware VIX\vnetlib.exe")
-            if os.path.exists(vnetlib_vix):
-                vnetlib_path = vnetlib_vix
-            else:
-                # look for vnetlib.exe using the directory listed in the registry
-                vnetlib_path = find_vnetlib_registry(r"SOFTWARE\Wow6432Node\VMware, Inc.\VMware Player")
+        if os.path.exists(vnetlib_vix):
+            vnetlib_path = vnetlib_vix
+
     return vnetlib_path
 
 
@@ -149,6 +165,8 @@ def vmnet_windows(args, vmnet_range_start, vmnet_range_end):
     from win32com.shell import shell
     if not shell.IsUserAnAdmin():
         raise SystemExit("You must run this script as an administrator")
+
+    print("Using", vnetlib_path, "for controlling vmnet")
 
     if args.list:
         raise SystemExit("Not implemented")
@@ -170,6 +188,7 @@ def vmnet_windows(args, vmnet_range_start, vmnet_range_end):
     os.system("net start npf")
     os.system("net stop npcap")
     os.system("net start npcap")
+
 
 def vmnet_unix(args, vmnet_range_start, vmnet_range_end):
     """

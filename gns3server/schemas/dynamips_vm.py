@@ -16,13 +16,52 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
+DYNAMIPS_ADAPTERS = {
+    "description": "Dynamips Network Module",
+    "enum": ["C7200-IO-2FE",
+             "C7200-IO-FE",
+             "C7200-IO-GE-E",
+             "NM-16ESW",
+             "NM-1E",
+             "NM-1FE-TX",
+             "NM-4E",
+             "NM-4T",
+             "PA-2FE-TX",
+             "PA-4E",
+             "PA-4T+",
+             "PA-8E",
+             "PA-8T",
+             "PA-A1",
+             "PA-FE-TX",
+             "PA-GE",
+             "PA-POS-OC3",
+             "C2600-MB-2FE",
+             "C2600-MB-1E",
+             "C1700-MB-1FE",
+             "C2600-MB-2E",
+             "C2600-MB-1FE",
+             "C1700-MB-WIC1",
+             "GT96100-FE",
+             "Leopard-2FE",
+             ""]
+}
+
+DYNAMIPS_WICS = {
+    "description": "Dynamips WIC",
+    "enum": ["WIC-1ENET",
+             "WIC-1T",
+             "WIC-2T",
+             ""]
+}
+
+#TODO: improve schema for Dynamips (match platform specific options, e.g. NPE allowd only for c7200)
 VM_CREATE_SCHEMA = {
     "$schema": "http://json-schema.org/draft-04/schema#",
     "description": "Request validation to create a new Dynamips VM instance",
     "type": "object",
     "properties": {
-        "vm_id": {
-            "description": "Dynamips VM instance identifier",
+        "node_id": {
+            "description": "Node UUID",
             "oneOf": [
                 {"type": "string",
                  "minLength": 36,
@@ -32,60 +71,54 @@ VM_CREATE_SCHEMA = {
             ]
         },
         "dynamips_id": {
-            "description": "ID to use with Dynamips",
-            "type": "integer"
+            "description": "Dynamips ID",
+            "type": ["integer", "null"]
         },
         "name": {
             "description": "Dynamips VM instance name",
             "type": "string",
             "minLength": 1,
         },
+        "usage": {
+            "description": "How to use the Dynamips VM",
+            "type": "string",
+        },
         "platform": {
-            "description": "platform",
+            "description": "Cisco router platform",
             "type": "string",
             "minLength": 1,
             "pattern": "^c[0-9]{4}$"
         },
         "chassis": {
-            "description": "router chassis model",
+            "description": "Cisco router chassis model",
             "type": "string",
             "minLength": 1,
             "pattern": "^[0-9]{4}(XM)?$"
         },
         "image": {
-            "description": "path to the IOS image",
+            "description": "Path to the IOS image",
             "type": "string",
             "minLength": 1,
         },
         "image_md5sum": {
-            "description": "checksum of the IOS image",
+            "description": "Checksum of the IOS image",
             "type": ["string", "null"],
-            "minLength": 1,
-        },
-        "startup_config": {
-            "description": "path to the IOS startup configuration file",
-            "type": "string",
             "minLength": 1,
         },
         "startup_config_content": {
             "description": "Content of IOS startup configuration file",
             "type": "string",
         },
-        "private_config": {
-            "description": "path to the IOS private configuration file",
-            "type": "string",
-            "minLength": 1,
-        },
         "private_config_content": {
             "description": "Content of IOS private configuration file",
             "type": "string",
         },
         "ram": {
-            "description": "amount of RAM in MB",
+            "description": "Amount of RAM in MB",
             "type": "integer"
         },
         "nvram": {
-            "description": "amount of NVRAM in KB",
+            "description": "Amount of NVRAM in KB",
             "type": "integer"
         },
         "mmap": {
@@ -93,11 +126,11 @@ VM_CREATE_SCHEMA = {
             "type": "boolean"
         },
         "sparsemem": {
-            "description": "sparse memory feature",
+            "description": "Sparse memory feature",
             "type": "boolean"
         },
         "clock_divisor": {
-            "description": "clock divisor",
+            "description": "Clock divisor",
             "type": "integer"
         },
         "idlepc": {
@@ -106,49 +139,53 @@ VM_CREATE_SCHEMA = {
             "pattern": "^(0x[0-9a-fA-F]+)?$"
         },
         "idlemax": {
-            "description": "idlemax value",
+            "description": "Idlemax value",
             "type": "integer",
         },
         "idlesleep": {
-            "description": "idlesleep value",
+            "description": "Idlesleep value",
             "type": "integer",
         },
         "exec_area": {
-            "description": "exec area value",
+            "description": "Exec area value",
             "type": "integer",
         },
         "disk0": {
-            "description": "disk0 size in MB",
+            "description": "Disk0 size in MB",
             "type": "integer"
         },
         "disk1": {
-            "description": "disk1 size in MB",
+            "description": "Disk1 size in MB",
             "type": "integer"
         },
         "auto_delete_disks": {
-            "description": "automatically delete nvram and disk files",
+            "description": "Automatically delete nvram and disk files",
             "type": "boolean"
         },
         "console": {
-            "description": "console TCP port",
-            "type": "integer",
+            "description": "Console TCP port",
+            "type": ["integer", "null"],
             "minimum": 1,
             "maximum": 65535
         },
+        "console_type": {
+            "description": "Console type",
+            "enum": ["telnet", "none"]
+        },
         "aux": {
-            "description": "auxiliary console TCP port",
-            "type": "integer",
+            "description": "Auxiliary console TCP port",
+            "type": ["null", "integer"],
             "minimum": 1,
             "maximum": 65535
         },
         "mac_addr": {
-            "description": "base MAC address",
-            "type": "string",
+            "description": "Base MAC address",
+            "type": ["null", "string"],
             "minLength": 1,
             "pattern": "^([0-9a-fA-F]{4}\\.){2}[0-9a-fA-F]{4}$"
         },
         "system_id": {
-            "description": "system ID",
+            "description": "System ID",
             "type": "string",
             "minLength": 1,
         },
@@ -221,14 +258,6 @@ VM_CREATE_SCHEMA = {
                 {"type": "string"},
                 {"type": "null"}
             ]
-        },
-        "startup_config_base64": {
-            "description": "startup configuration base64 encoded",
-            "type": "string"
-        },
-        "private_config_base64": {
-            "description": "private configuration base64 encoded",
-            "type": "string"
         },
         # C7200 properties
         "npe": {
@@ -276,42 +305,42 @@ VM_UPDATE_SCHEMA = {
             "type": "string",
             "minLength": 1,
         },
+        "usage": {
+            "description": "How to use the Dynamips VM",
+            "type": "string",
+        },
         "platform": {
-            "description": "platform",
+            "description": "Cisco router platform",
             "type": "string",
             "minLength": 1,
             "pattern": "^c[0-9]{4}$"
         },
         "chassis": {
-            "description": "router chassis model",
+            "description": "Cisco router chassis model",
             "type": "string",
             "minLength": 1,
             "pattern": "^[0-9]{4}(XM)?$"
         },
         "image": {
-            "description": "path to the IOS image",
+            "description": "Path to the IOS image",
             "type": "string",
             "minLength": 1,
         },
         "image_md5sum": {
-            "description": "checksum of the IOS image",
+            "description": "Checksum of the IOS image",
             "type": ["string", "null"],
             "minLength": 1,
         },
-        "startup_config_content": {
-            "description": "Content of IOS startup configuration file",
-            "type": "string",
-        },
-        "private_config_content": {
-            "description": "Content of IOS private configuration file",
-            "type": "string",
+        "dynamips_id": {
+            "description": "Dynamips ID",
+            "type": "integer"
         },
         "ram": {
-            "description": "amount of RAM in MB",
+            "description": "Amount of RAM in MB",
             "type": "integer"
         },
         "nvram": {
-            "description": "amount of NVRAM in KB",
+            "description": "Amount of NVRAM in KB",
             "type": "integer"
         },
         "mmap": {
@@ -319,11 +348,11 @@ VM_UPDATE_SCHEMA = {
             "type": "boolean"
         },
         "sparsemem": {
-            "description": "sparse memory feature",
+            "description": "Sparse memory feature",
             "type": "boolean"
         },
         "clock_divisor": {
-            "description": "clock divisor",
+            "description": "Clock divisor",
             "type": "integer"
         },
         "idlepc": {
@@ -332,49 +361,53 @@ VM_UPDATE_SCHEMA = {
             "pattern": "^(0x[0-9a-fA-F]+)?$"
         },
         "idlemax": {
-            "description": "idlemax value",
+            "description": "Idlemax value",
             "type": "integer",
         },
         "idlesleep": {
-            "description": "idlesleep value",
+            "description": "Idlesleep value",
             "type": "integer",
         },
         "exec_area": {
-            "description": "exec area value",
+            "description": "Exec area value",
             "type": "integer",
         },
         "disk0": {
-            "description": "disk0 size in MB",
+            "description": "Disk0 size in MB",
             "type": "integer"
         },
         "disk1": {
-            "description": "disk1 size in MB",
+            "description": "Disk1 size in MB",
             "type": "integer"
         },
         "auto_delete_disks": {
-            "description": "automatically delete nvram and disk files",
+            "description": "Automatically delete nvram and disk files",
             "type": "boolean"
         },
         "console": {
-            "description": "console TCP port",
-            "type": "integer",
+            "description": "Console TCP port",
+            "type": ["integer", "null"],
             "minimum": 1,
             "maximum": 65535
         },
+        "console_type": {
+            "description": "Console type",
+            "enum": ["telnet", "none"]
+        },
         "aux": {
-            "description": "auxiliary console TCP port",
+            "description": "Auxiliary console TCP port",
             "type": "integer",
             "minimum": 1,
             "maximum": 65535
         },
         "mac_addr": {
-            "description": "base MAC address",
-            "type": "string",
+            "description": "Base MAC address",
+            "type": ["null", "string"],
             "minLength": 1,
             "pattern": "^([0-9a-fA-F]{4}\\.){2}[0-9a-fA-F]{4}$"
         },
         "system_id": {
-            "description": "system ID",
+            "description": "System ID",
             "type": "string",
             "minLength": 1,
         },
@@ -447,14 +480,6 @@ VM_UPDATE_SCHEMA = {
                 {"type": "string"},
                 {"type": "null"}
             ]
-        },
-        "startup_config_base64": {
-            "description": "startup configuration base64 encoded",
-            "type": "string"
-        },
-        "private_config_base64": {
-            "description": "private configuration base64 encoded",
-            "type": "string"
         },
         # C7200 properties
         "npe": {
@@ -501,15 +526,15 @@ VM_OBJECT_SCHEMA = {
             "description": "ID to use with Dynamips",
             "type": "integer"
         },
-        "vm_id": {
-            "description": "Dynamips router instance UUID",
+        "node_id": {
+            "description": "Node UUID",
             "type": "string",
             "minLength": 36,
             "maxLength": 36,
             "pattern": "^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$"
         },
-        "vm_directory": {
-            "decription": "Path to the VM working directory",
+        "node_directory": {
+            "description": "Path to the vm working directory",
             "type": "string"
         },
         "project_id": {
@@ -524,42 +549,42 @@ VM_OBJECT_SCHEMA = {
             "type": "string",
             "minLength": 1,
         },
+        "usage": {
+            "description": "How to use the Dynamips VM",
+            "type": "string",
+        },
+        "status": {
+            "description": "VM status",
+            "enum": ["started", "stopped", "suspended"]
+        },
         "platform": {
-            "description": "platform",
+            "description": "Cisco router platform",
             "type": "string",
             "minLength": 1,
             "pattern": "^c[0-9]{4}$"
         },
         "chassis": {
-            "description": "router chassis model",
+            "description": "Cisco router chassis model",
             "type": "string",
             "minLength": 1,
             "pattern": "^[0-9]{4}(XM)?$"
         },
         "image": {
-            "description": "path to the IOS image",
+            "description": "Path to the IOS image",
             "type": "string",
             "minLength": 1,
         },
         "image_md5sum": {
-            "description": "checksum of the IOS image",
+            "description": "Checksum of the IOS image",
             "type": ["string", "null"],
             "minLength": 1,
         },
-        "startup_config": {
-            "description": "path to the IOS startup configuration file",
-            "type": "string",
-        },
-        "private_config": {
-            "description": "path to the IOS private configuration file",
-            "type": "string",
-        },
         "ram": {
-            "description": "amount of RAM in MB",
+            "description": "Amount of RAM in MB",
             "type": "integer"
         },
         "nvram": {
-            "description": "amount of NVRAM in KB",
+            "description": "Amount of NVRAM in KB",
             "type": "integer"
         },
         "mmap": {
@@ -567,11 +592,11 @@ VM_OBJECT_SCHEMA = {
             "type": "boolean"
         },
         "sparsemem": {
-            "description": "sparse memory feature",
+            "description": "Sparse memory feature",
             "type": "boolean"
         },
         "clock_divisor": {
-            "description": "clock divisor",
+            "description": "Clock divisor",
             "type": "integer"
         },
         "idlepc": {
@@ -580,49 +605,53 @@ VM_OBJECT_SCHEMA = {
             "pattern": "^(0x[0-9a-fA-F]+)?$"
         },
         "idlemax": {
-            "description": "idlemax value",
+            "description": "Idlemax value",
             "type": "integer",
         },
         "idlesleep": {
-            "description": "idlesleep value",
+            "description": "Idlesleep value",
             "type": "integer",
         },
         "exec_area": {
-            "description": "exec area value",
+            "description": "Exec area value",
             "type": "integer",
         },
         "disk0": {
-            "description": "disk0 size in MB",
+            "description": "Disk0 size in MB",
             "type": "integer"
         },
         "disk1": {
-            "description": "disk1 size in MB",
+            "description": "Disk1 size in MB",
             "type": "integer"
         },
         "auto_delete_disks": {
-            "description": "automatically delete nvram and disk files",
+            "description": "Automatically delete nvram and disk files",
             "type": "boolean"
         },
         "console": {
-            "description": "console TCP port",
-            "type": "integer",
+            "description": "Console TCP port",
+            "type": ["integer", "null"],
             "minimum": 1,
             "maximum": 65535
         },
+        "console_type": {
+            "description": "Console type",
+            "enum": ["telnet", "none"]
+        },
         "aux": {
-            "description": "auxiliary console TCP port",
+            "description": "Auxiliary console TCP port",
             "type": ["integer", "null"],
             "minimum": 1,
             "maximum": 65535
         },
         "mac_addr": {
-            "description": "base MAC address",
-            "type": "string",
+            "description": "Base MAC address",
+            "type": ["null", "string"]
             #"minLength": 1,
             #"pattern": "^([0-9a-fA-F]{4}\\.){2}[0-9a-fA-F]{4}$"
         },
         "system_id": {
-            "description": "system ID",
+            "description": "System ID",
             "type": "string",
             "minLength": 1,
         },
@@ -696,14 +725,6 @@ VM_OBJECT_SCHEMA = {
                 {"type": "null"}
             ]
         },
-        "startup_config_base64": {
-            "description": "startup configuration base64 encoded",
-            "type": "string"
-        },
-        "private_config_base64": {
-            "description": "private configuration base64 encoded",
-            "type": "string"
-        },
         # C7200 properties
         "npe": {
             "description": "NPE model",
@@ -737,24 +758,5 @@ VM_OBJECT_SCHEMA = {
         },
     },
     "additionalProperties": False,
-    "required": ["name", "vm_id", "project_id", "dynamips_id"]
-}
-
-VM_CONFIGS_SCHEMA = {
-    "$schema": "http://json-schema.org/draft-04/schema#",
-    "description": "Request validation to get the startup and private configuration file",
-    "type": "object",
-    "properties": {
-        "startup_config_content": {
-            "description": "Content of the startup configuration file",
-            "type": ["string", "null"],
-            "minLength": 1,
-        },
-        "private_config_content": {
-            "description": "Content of the private configuration file",
-            "type": ["string", "null"],
-            "minLength": 1,
-        },
-    },
-    "additionalProperties": False,
+    "required": ["name", "node_id", "project_id", "dynamips_id", "console", "console_type"]
 }

@@ -26,8 +26,8 @@ IOU_CREATE_SCHEMA = {
             "type": "string",
             "minLength": 1,
         },
-        "vm_id": {
-            "description": "IOU VM identifier",
+        "node_id": {
+            "description": "Node UUID",
             "oneOf": [
                 {"type": "string",
                  "minLength": 36,
@@ -36,11 +36,19 @@ IOU_CREATE_SCHEMA = {
                 {"type": "integer"}  # for legacy projects
             ]
         },
+        "usage": {
+            "description": "How to use the IOU VM",
+            "type": "string",
+        },
         "console": {
-            "description": "console TCP port",
+            "description": "Console TCP port",
             "minimum": 1,
             "maximum": 65535,
             "type": ["integer", "null"]
+        },
+        "console_type": {
+            "description": "Console type",
+            "enum": ["telnet", "none"]
         },
         "path": {
             "description": "Path of iou binary",
@@ -74,14 +82,6 @@ IOU_CREATE_SCHEMA = {
             "description": "Use default IOU values",
             "type": ["boolean", "null"]
         },
-        "startup_config": {
-            "description": "Path to the startup-config of IOU",
-            "type": ["string", "null"]
-        },
-        "private_config": {
-            "description": "Path to the private-config of IOU",
-            "type": ["string", "null"]
-        },
         "startup_config_content": {
             "description": "Startup-config of IOU",
             "type": ["string", "null"]
@@ -90,77 +90,13 @@ IOU_CREATE_SCHEMA = {
             "description": "Private-config of IOU",
             "type": ["string", "null"]
         },
-        "iourc_content": {
-            "description": "Content of the iourc file. Ignored if Null",
-            "type": ["string", "null"]
-        }
+        "application_id": {
+            "description": "Application ID for running IOU image",
+            "type": ["integer", "null"]
+        },
     },
     "additionalProperties": False,
-    "required": ["name", "path"]
-}
-
-IOU_UPDATE_SCHEMA = {
-    "$schema": "http://json-schema.org/draft-04/schema#",
-    "description": "Request validation to update a IOU instance",
-    "type": "object",
-    "properties": {
-        "name": {
-            "description": "IOU VM name",
-            "type": ["string", "null"],
-            "minLength": 1,
-        },
-        "console": {
-            "description": "console TCP port",
-            "minimum": 1,
-            "maximum": 65535,
-            "type": ["integer", "null"]
-        },
-        "path": {
-            "description": "Path of iou binary",
-            "type": ["string", "null"]
-        },
-        "md5sum": {
-            "description": "Checksum of iou binary",
-            "type": ["string", "null"]
-        },
-        "serial_adapters": {
-            "description": "How many serial adapters are connected to the IOU",
-            "type": ["integer", "null"]
-        },
-        "ethernet_adapters": {
-            "description": "How many ethernet adapters are connected to the IOU",
-            "type": ["integer", "null"]
-        },
-        "ram": {
-            "description": "Allocated RAM MB",
-            "type": ["integer", "null"]
-        },
-        "nvram": {
-            "description": "Allocated NVRAM KB",
-            "type": ["integer", "null"]
-        },
-        "l1_keepalives": {
-            "description": "Always up ethernet interface",
-            "type": ["boolean", "null"]
-        },
-        "startup_config_content": {
-            "description": "Startup-config of IOU",
-            "type": ["string", "null"]
-        },
-        "private_config_content": {
-            "description": "Private-config of IOU",
-            "type": ["string", "null"]
-        },
-        "use_default_iou_values": {
-            "description": "Use default IOU values",
-            "type": ["boolean", "null"]
-        },
-        "iourc_content": {
-            "description": "Content of the iourc file. Ignored if Null",
-            "type": ["string", "null"]
-        }
-    },
-    "additionalProperties": False,
+    "required": ["application_id", "name", "path"]
 }
 
 
@@ -172,6 +108,10 @@ IOU_START_SCHEMA = {
         "iourc_content": {
             "description": "Content of the iourc file. Ignored if Null",
             "type": ["string", "null"]
+        },
+        "license_check": {
+            "description": "Whether the license should be checked",
+            "type": "boolean"
         }
     }
 }
@@ -187,22 +127,34 @@ IOU_OBJECT_SCHEMA = {
             "type": "string",
             "minLength": 1,
         },
-        "vm_id": {
+        "node_id": {
             "description": "IOU VM UUID",
             "type": "string",
             "minLength": 36,
             "maxLength": 36,
             "pattern": "^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$"
         },
-        "vm_directory": {
-            "decription": "Path to the VM working directory",
+        "usage": {
+            "description": "How to use the IOU VM",
+            "type": "string",
+        },
+        "node_directory": {
+            "description": "Path to the node working directory",
             "type": "string"
         },
+        "status": {
+            "description": "VM status",
+            "enum": ["started", "stopped", "suspended"]
+        },
         "console": {
-            "description": "console TCP port",
+            "description": "Console TCP port",
             "minimum": 1,
             "maximum": 65535,
-            "type": "integer"
+            "type": ["integer", "null"]
+        },
+        "console_type": {
+            "description": "Console type",
+            "enum": ["telnet", "none"]
         },
         "project_id": {
             "description": "Project UUID",
@@ -239,49 +191,18 @@ IOU_OBJECT_SCHEMA = {
             "description": "Always up ethernet interface",
             "type": "boolean"
         },
-        "startup_config": {
-            "description": "Path of the startup-config content relative to project directory",
-            "type": ["string", "null"]
-        },
-        "private_config": {
-            "description": "Path of the private-config content relative to project directory",
-            "type": ["string", "null"]
-        },
         "use_default_iou_values": {
             "description": "Use default IOU values",
             "type": ["boolean", "null"]
         },
-        "iourc_path": {
-            "description": "Path of the iourc file used by remote servers",
-            "type": ["string", "null"]
-        },
         "command_line": {
-            "description": "Last command line used by GNS3 to start QEMU",
+            "description": "Last command line used by GNS3 to start IOU",
             "type": "string"
-        }
-    },
-    "additionalProperties": False,
-    "required": ["name", "vm_id", "console", "project_id", "path", "md5sum", "serial_adapters", "ethernet_adapters",
-                 "ram", "nvram", "l1_keepalives", "startup_config", "private_config", "use_default_iou_values",
-                 "command_line"]
-}
-
-
-IOU_CONFIGS_SCHEMA = {
-    "$schema": "http://json-schema.org/draft-04/schema#",
-    "description": "Request validation to get the startup and private configuration file",
-    "type": "object",
-    "properties": {
-        "startup_config_content": {
-            "description": "Content of the startup configuration file",
-            "type": ["string", "null"],
-            "minLength": 1,
         },
-        "private_config_content": {
-            "description": "Content of the private configuration file",
-            "type": ["string", "null"],
-            "minLength": 1,
+        "application_id": {
+            "description": "Application ID for running IOU image",
+            "type": "integer"
         },
     },
-    "additionalProperties": False,
+    "additionalProperties": False
 }

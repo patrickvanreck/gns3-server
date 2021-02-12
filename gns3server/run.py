@@ -27,14 +27,14 @@ import sys
 import locale
 import argparse
 import psutil
-import asyncio
 
-from gns3server.server import Server
+
+from gns3server.web.web_server import WebServer
 from gns3server.web.logger import init_logger
 from gns3server.version import __version__
 from gns3server.config import Config
-from gns3server.modules.project import Project
 from gns3server.crash_report import CrashReport
+
 
 import logging
 log = logging.getLogger(__name__)
@@ -63,13 +63,13 @@ def locale_check():
         log.error("Could not determine the current locale: {}".format(e))
     if not language and not encoding:
         try:
-            log.warn("Could not find a default locale, switching to C.UTF-8...")
+            log.warning("Could not find a default locale, switching to C.UTF-8...")
             locale.setlocale(locale.LC_ALL, ("C", "UTF-8"))
         except locale.Error as e:
             log.error("Could not switch to the C.UTF-8 locale: {}".format(e))
             raise SystemExit
     elif encoding != "UTF-8":
-        log.warn("Your locale {}.{} encoding is not UTF-8, switching to the UTF-8 version...".format(language, encoding))
+        log.warning("Your locale {}.{} encoding is not UTF-8, switching to the UTF-8 version...".format(language, encoding))
         try:
             locale.setlocale(locale.LC_ALL, (language, "UTF-8"))
         except locale.Error as e:
@@ -91,7 +91,6 @@ def parse_arguments(argv):
     parser.add_argument("--host", help="run on the given host/IP address")
     parser.add_argument("--port", help="run on the given port", type=int)
     parser.add_argument("--ssl", action="store_true", help="run in SSL mode")
-    parser.add_argument("--controller", action="store_true", help="start as a GNS3 controller")
     parser.add_argument("--config", help="Configuration file")
     parser.add_argument("--certfile", help="SSL cert file")
     parser.add_argument("--certkey", help="SSL key file")
@@ -100,15 +99,20 @@ def parse_arguments(argv):
     parser.add_argument("-A", "--allow", action="store_true", help="allow remote connections to local console ports")
     parser.add_argument("-q", "--quiet", action="store_true", help="do not show logs on stdout")
     parser.add_argument("-d", "--debug", action="store_true", help="show debug logs")
-    parser.add_argument("--live", action="store_true", help="enable code live reload")
     parser.add_argument("--shell", action="store_true", help="start a shell inside the server (debugging purpose only you need to install ptpython before)")
     parser.add_argument("--log", help="send output to logfile instead of console")
+    parser.add_argument("--logmaxsize", help="maximum logfile size in bytes (default is 10MB)")
+    parser.add_argument("--logbackupcount", help="number of historical log files to keep (default is 10)")
+    parser.add_argument("--logcompression", action="store_true", help="compress inactive (historical) logs")
     parser.add_argument("--daemon", action="store_true", help="start as a daemon")
     parser.add_argument("--pid", help="store process pid")
+    parser.add_argument("--profile", help="Settings profile (blank will use default settings files)")
 
     args = parser.parse_args(argv)
     if args.config:
-        Config.instance(files=[args.config])
+        Config.instance(files=[args.config], profile=args.profile)
+    else:
+        Config.instance(profile=args.profile)
 
     config = Config.instance().get_section_config("Server")
     defaults = {
@@ -119,12 +123,13 @@ def parse_arguments(argv):
         "certkey": config.get("certkey", ""),
         "record": config.get("record", ""),
         "local": config.getboolean("local", False),
-        "controller": config.getboolean("controller", False),
         "allow": config.getboolean("allow_remote_console", False),
         "quiet": config.getboolean("quiet", False),
         "debug": config.getboolean("debug", False),
-        "live": config.getboolean("live", False),
         "logfile": config.getboolean("logfile", ""),
+        "logmaxsize": config.get("logmaxsize", 10000000),  # default is 10MB
+        "logbackupcount": config.get("logbackupcount", 10),
+        "logcompression": config.getboolean("logcompression", False)
     }
 
     parser.set_defaults(**defaults)
@@ -136,7 +141,6 @@ def set_config(args):
     config = Config.instance()
     server_config = config.get_section_config("Server")
     server_config["local"] = str(args.local)
-    server_config["controller"] = str(args.controller)
     server_config["allow_remote_console"] = str(args.allow)
     server_config["host"] = args.host
     server_config["port"] = str(args.port)
@@ -145,7 +149,6 @@ def set_config(args):
     server_config["certkey"] = args.certkey
     server_config["record"] = args.record
     server_config["debug"] = str(args.debug)
-    server_config["live"] = str(args.live)
     server_config["shell"] = str(args.shell)
     config.set_section_config("Server", server_config)
 
@@ -160,10 +163,10 @@ def pid_lock(path):
         pid = None
         try:
             with open(path) as f:
-                pid = int(f.read())
                 try:
-                    os.kill(pid, 0)  # If the proces is not running kill return an error
-                except OSError:
+                    pid = int(f.read())
+                    os.kill(pid, 0)  # kill returns an error if the process is not running
+                except (OSError, SystemError, ValueError):
                     pid = None
         except OSError as e:
             log.critical("Can't open pid file %s: %s", pid, str(e))
@@ -185,7 +188,7 @@ def kill_ghosts():
     """
     Kill process from previous GNS3 session
     """
-    detect_process = ["vpcs", "ubridge", "dynamips"]
+    detect_process = ["vpcs", "traceng", "ubridge", "dynamips"]
     for proc in psutil.process_iter():
         try:
             name = proc.name().lower().split(".")[0]
@@ -211,7 +214,8 @@ def run():
     if args.debug:
         level = logging.DEBUG
 
-    user_log = init_logger(level, logfile=args.log, quiet=args.quiet)
+    user_log = init_logger(level, logfile=args.log, max_bytes=int(args.logmaxsize), backup_count=int(args.logbackupcount),
+                           compression=args.logcompression, quiet=args.quiet)
     user_log.info("GNS3 server version {}".format(__version__))
     current_year = datetime.date.today().year
     user_log.info("Copyright (c) 2007-{} GNS3 Technologies Inc.".format(current_year))
@@ -221,19 +225,23 @@ def run():
 
     set_config(args)
     server_config = Config.instance().get_section_config("Server")
-    if server_config.getboolean("controller"):
-        log.info("Controller mode is enabled.")
 
     if server_config.getboolean("local"):
         log.warning("Local mode is enabled. Beware, clients will have full control on your filesystem")
 
-    # we only support Python 3 version >= 3.4
-    if sys.version_info < (3, 4):
-        raise SystemExit("Python 3.4 or higher is required")
+    if server_config.getboolean("auth"):
+        user = server_config.get("user", "").strip()
+        if not user:
+            log.critical("HTTP authentication is enabled but no username is configured")
+            return
+        log.info("HTTP authentication is enabled with username '{}'".format(user))
 
-    user_log.info("Running with Python {major}.{minor}.{micro} and has PID {pid}".format(
-                  major=sys.version_info[0], minor=sys.version_info[1],
-                  micro=sys.version_info[2], pid=os.getpid()))
+    # we only support Python 3 version >= 3.6
+    if sys.version_info < (3, 6, 0):
+        raise SystemExit("Python 3.6 or higher is required")
+
+    user_log.info("Running with Python {major}.{minor}.{micro} and has PID {pid}".format(major=sys.version_info[0], minor=sys.version_info[1],
+                                                                                         micro=sys.version_info[2], pid=os.getpid()))
 
     # check for the correct locale (UNIX/Linux only)
     locale_check()
@@ -244,13 +252,11 @@ def run():
         log.critical("The current working directory doesn't exist")
         return
 
-    Project.clean_project_directory()
-
     CrashReport.instance()
     host = server_config["host"]
     port = int(server_config["port"])
 
-    server = Server.instance(host, port)
+    server = WebServer.instance(host, port)
     try:
         server.run()
     except OSError as e:
@@ -261,10 +267,10 @@ def run():
         log.critical("Critical error while running the server: {}".format(e), exc_info=1)
         CrashReport.instance().capture_exception()
         return
-
-    if args.pid:
-        log.info("Remove PID file %s", args.pid)
-        try:
-            os.remove(args.pid)
-        except OSError as e:
-            log.critical("Can't remove pid file %s: %s", args.pid, str(e))
+    finally:
+        if args.pid:
+            log.info("Remove PID file %s", args.pid)
+            try:
+                os.remove(args.pid)
+            except OSError as e:
+                log.critical("Can't remove pid file %s: %s", args.pid, str(e))

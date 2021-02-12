@@ -16,11 +16,15 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
+import os
 import sys
 import aiohttp
 import socket
 import struct
 import psutil
+
+from .windows_service import check_windows_service_is_running
+from gns3server.config import Config
 
 if psutil.version_info < (3, 0, 0):
     raise Exception("psutil version should >= 3.0.0. If you are under Ubuntu/Debian install gns3 via apt instead of pip")
@@ -50,8 +54,10 @@ def _get_windows_interfaces_from_registry():
             is_dhcp_enabled, _ = winreg.QueryValueEx(hkeyinterface, "EnableDHCP")
             if is_dhcp_enabled:
                 ip_address, _ = winreg.QueryValueEx(hkeyinterface, "DhcpIPAddress")
+                netmask, _ = winreg.QueryValueEx(hkeyinterface, "DhcpSubnetMask")
             else:
                 ip_address, _ = winreg.QueryValueEx(hkeyinterface, "IPAddress")
+                netmask, _ = winreg.QueryValueEx(hkeyinterface, "SubnetMask")
                 if ip_address:
                     # get the first IPv4 address only
                     ip_address = ip_address[0]
@@ -60,7 +66,9 @@ def _get_windows_interfaces_from_registry():
                                "name": name,
                                "ip_address": ip_address,
                                "mac_address": "",  # TODO: find MAC address in registry
-                               "netcard": netcard})
+                               "netcard": netcard,
+                               "netmask": netmask,
+                               "type": "ethernet"})
             winreg.CloseKey(hkeyinterface)
             winreg.CloseKey(hkeycon)
             winreg.CloseKey(hkeycard)
@@ -85,28 +93,49 @@ def get_windows_interfaces():
     try:
         locator = win32com.client.Dispatch("WbemScripting.SWbemLocator")
         service = locator.ConnectServer(".", "root\cimv2")
+        network_configs = service.InstancesOf("Win32_NetworkAdapterConfiguration")
         # more info on Win32_NetworkAdapter: http://msdn.microsoft.com/en-us/library/aa394216%28v=vs.85%29.aspx
         for adapter in service.InstancesOf("Win32_NetworkAdapter"):
             if adapter.NetConnectionStatus == 2 or adapter.NetConnectionStatus == 7:
                 # adapter is connected or media disconnected
                 ip_address = ""
-                for network_config in service.InstancesOf("Win32_NetworkAdapterConfiguration"):
+                netmask = ""
+                for network_config in network_configs:
                     if network_config.InterfaceIndex == adapter.InterfaceIndex:
                         if network_config.IPAddress:
                             # get the first IPv4 address only
                             ip_address = network_config.IPAddress[0]
+                            netmask = network_config.IPSubnet[0]
                         break
                 npf_interface = "\\Device\\NPF_{guid}".format(guid=adapter.GUID)
                 interfaces.append({"id": npf_interface,
                                    "name": adapter.NetConnectionID,
                                    "ip_address": ip_address,
                                    "mac_address": adapter.MACAddress,
-                                   "netcard": adapter.name})
+                                   "netcard": adapter.name,
+                                   "netmask": netmask,
+                                   "type": "ethernet"})
     except (AttributeError, pywintypes.com_error):
-        log.warn("Could not use the COM service to retrieve interface info, trying using the registry...")
+        log.warning("Could not use the COM service to retrieve interface info, trying using the registry...")
         return _get_windows_interfaces_from_registry()
 
     return interfaces
+
+
+def has_netmask(interface_name):
+    """
+    Checks if an interface has a netmask.
+
+    :param interface: interface name
+
+    :returns: boolean
+    """
+    for interface in interfaces():
+        if interface["name"] == interface_name:
+            if interface["netmask"] and len(interface["netmask"]) > 0:
+                return True
+            return False
+    return False
 
 
 def is_interface_up(interface):
@@ -139,21 +168,11 @@ def is_interface_up(interface):
         return True
 
 
-def _check_windows_service(service_name):
-
-    import pywintypes
-    import win32service
-    import win32serviceutil
-
-    try:
-        if win32serviceutil.QueryServiceStatus(service_name, None)[1] != win32service.SERVICE_RUNNING:
-            return False
-    except pywintypes.error as e:
-        if e.winerror == 1060:
-            return False
-        else:
-            raise aiohttp.web.HTTPInternalServerError(text="Could not check if the {} service is running: {}".format(service_name, e.strerror))
-    return True
+def is_interface_bridge(interface):
+    """
+    :returns: True if interface is a bridge
+    """
+    return os.path.exists(os.path.join("/sys/class/net/", interface, "bridge"))
 
 
 def interfaces():
@@ -165,23 +184,38 @@ def interfaces():
 
     results = []
     if not sys.platform.startswith("win"):
-        for interface in sorted(psutil.net_if_addrs().keys()):
+        allowed_interfaces = Config.instance().get_section_config("Server").get("allowed_interfaces", None)
+        if allowed_interfaces:
+            allowed_interfaces = allowed_interfaces.split(',')
+        net_if_addrs = psutil.net_if_addrs()
+        for interface in sorted(net_if_addrs.keys()):
+            if allowed_interfaces and interface not in allowed_interfaces and not interface.startswith("gns3tap"):
+                log.warning("Interface '{}' is not allowed to be used on this server".format(interface))
+                continue
             ip_address = ""
             mac_address = ""
-            for addr in psutil.net_if_addrs()[interface]:
+            netmask = ""
+            interface_type = "ethernet"
+            for addr in net_if_addrs[interface]:
                 # get the first available IPv4 address only
                 if addr.family == socket.AF_INET:
                     ip_address = addr.address
+                    netmask = addr.netmask
                 if addr.family == psutil.AF_LINK:
                     mac_address = addr.address
+            if interface.startswith("tap"):
+                # found no way to reliably detect a TAP interface
+                interface_type = "tap"
             results.append({"id": interface,
                             "name": interface,
                             "ip_address": ip_address,
-                            "mac_address": mac_address})
+                            "netmask": netmask,
+                            "mac_address": mac_address,
+                            "type": interface_type})
     else:
         try:
             service_installed = True
-            if not _check_windows_service("npf") and not _check_windows_service("npcap"):
+            if not check_windows_service_is_running("npf") and not check_windows_service_is_running("npcap"):
                 service_installed = False
             else:
                 results = get_windows_interfaces()
@@ -195,4 +229,15 @@ def interfaces():
         if service_installed is False:
             raise aiohttp.web.HTTPInternalServerError(text="The Winpcap or Npcap is not installed or running")
 
+    # This interface have special behavior
+    for result in results:
+        result["special"] = False
+        for special_interface in ("lo", "vmnet", "vboxnet", "docker", "lxcbr",
+                                  "virbr", "ovs-system", "veth", "fw", "p2p",
+                                  "bridge", "vmware", "virtualbox", "gns3"):
+            if result["name"].lower().startswith(special_interface):
+                result["special"] = True
+        for special_interface in ("-nic"):
+            if result["name"].lower().endswith(special_interface):
+                result["special"] = True
     return results

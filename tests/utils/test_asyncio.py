@@ -21,72 +21,54 @@ import pytest
 import sys
 from unittest.mock import MagicMock
 
-from gns3server.utils.asyncio import wait_run_in_executor, subprocess_check_output, wait_for_process_termination, locked_coroutine
+from gns3server.utils.asyncio import wait_run_in_executor, subprocess_check_output, wait_for_process_termination, locking
+from tests.utils import AsyncioMagicMock
 
 
-def test_wait_run_in_executor(loop):
+async def test_wait_run_in_executor():
 
     def change_var(param):
         return param
 
-    exec = wait_run_in_executor(change_var, "test")
-    result = loop.run_until_complete(asyncio.async(exec))
+    result = await wait_run_in_executor(change_var, "test")
     assert result == "test"
 
 
-def test_exception_wait_run_in_executor(loop):
+async def test_exception_wait_run_in_executor():
 
     def raise_exception():
         raise Exception("test")
 
-    exec = wait_run_in_executor(raise_exception)
     with pytest.raises(Exception):
-        result = loop.run_until_complete(asyncio.async(exec))
+        await wait_run_in_executor(raise_exception)
 
 
 @pytest.mark.skipif(sys.platform.startswith("win"), reason="Not supported on Windows")
-def test_subprocess_check_output(loop, tmpdir, restore_original_path):
+async def test_subprocess_check_output(loop, tmpdir):
 
     path = str(tmpdir / "test")
-    with open(path, "w+") as f:
-        f.write("TEST")
-    exec = subprocess_check_output("cat", path)
-    result = loop.run_until_complete(asyncio.async(exec))
-    assert result == "TEST"
+    result = await subprocess_check_output("echo", "-n", path)
+    assert result == path
 
 
-def test_wait_for_process_termination(loop):
-
-    process = MagicMock()
-    process.returncode = 0
-    exec = wait_for_process_termination(process)
-    loop.run_until_complete(asyncio.async(exec))
-
-    process = MagicMock()
-    process.returncode = None
-    exec = wait_for_process_termination(process, timeout=0.5)
-    with pytest.raises(asyncio.TimeoutError):
-        loop.run_until_complete(asyncio.async(exec))
-
-
-def test_lock_decorator(loop):
+async def test_lock_decorator():
     """
     The test check if the the second call to method_to_lock wait for the
     first call to finish
     """
 
     class TestLock:
+
         def __init__(self):
             self._test_val = 0
 
-        @locked_coroutine
-        def method_to_lock(self):
-            res = self._test_val
-            yield from asyncio.sleep(0.1)
+        @locking
+        async def method_to_lock(self):
+            result = self._test_val
+            await asyncio.sleep(0.1)
             self._test_val += 1
-            return res
+            return result
 
     i = TestLock()
-    res = set(loop.run_until_complete(asyncio.gather(i.method_to_lock(), i.method_to_lock())))
-    assert res == set((0, 1,)) # We use a set to test this to avoid order issue
-
+    res = set(await asyncio.gather(i.method_to_lock(), i.method_to_lock()))
+    assert res == set((0, 1,))  # We use a set to test this to avoid order issue

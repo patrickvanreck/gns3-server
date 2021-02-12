@@ -17,13 +17,14 @@
 
 import re
 import os.path
+import json
 import os
 
 from gns3server.handlers import *
 from gns3server.web.route import Route
 
 
-class Documentation(object):
+class Documentation:
 
     """Extract API documentation as Sphinx compatible files"""
 
@@ -36,7 +37,31 @@ class Documentation(object):
         self._directory = directory
 
     def write(self):
+        with open(os.path.join(self._directory, "gns3_file.json"), "w+") as f:
+            from gns3server.schemas.topology import TOPOLOGY_SCHEMA
+            print("Dump .gns3 schema")
+            json.dump(TOPOLOGY_SCHEMA, f, indent=4)
+        self.write_documentation("compute")
+        # Controller documentation
+        self.write_documentation("controller")
+
+    def write_documentation(self, doc_type):
+        """
+        Build all the doc page for handlers
+
+        :param doc_type: Type of doc to generate (controller, compute)
+        """
         for handler_name in sorted(self._documentation):
+            if "controller." in handler_name:
+                server_type = "controller"
+            elif "compute" in handler_name:
+                server_type = "compute"
+            else:
+                server_type = "root"
+
+            if doc_type != server_type:
+                continue
+
             print("Build {}".format(handler_name))
 
             for path in sorted(self._documentation[handler_name]):
@@ -45,16 +70,17 @@ class Documentation(object):
                 if api_version is None:
                     continue
 
-                self._create_handler_directory(handler_name, api_version)
-
                 filename = self._file_path(path)
                 handler_doc = self._documentation[handler_name][path]
-                with open("{}/api/v{}/{}/{}.rst".format(self._directory, api_version, handler_name, filename), 'w+') as f:
-                    f.write('{}\n----------------------------------------------------------------------------------------------------------------------\n\n'.format(path))
+                handler = handler_name.replace(server_type + ".", "")
+
+                self._create_handler_directory(handler, api_version, server_type)
+                with open("{}/api/v{}/{}/{}/{}.rst".format(self._directory, api_version, server_type, handler, filename), 'w+') as f:
+                    f.write('{}\n------------------------------------------------------------------------------------------------------------------------------------------\n\n'.format(path))
                     f.write('.. contents::\n')
                     for method in handler_doc["methods"]:
                         f.write('\n{} {}\n'.format(method["method"], path.replace("{", '**{').replace("}", "}**")))
-                        f.write('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n')
+                        f.write('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n')
                         f.write('{}\n\n'.format(method["description"]))
 
                         if len(method["parameters"]) > 0:
@@ -79,29 +105,31 @@ class Documentation(object):
                             f.write("Output\n*******\n")
                             self._write_json_schema(f, method["output_schema"])
 
-                        self._include_query_example(f, method, path, api_version)
+                        self._include_query_example(f, method, path, api_version, server_type)
 
-    def _create_handler_directory(self, handler_name, api_version):
+    def _create_handler_directory(self, handler_name, api_version, server_type):
         """Create a directory for the handler and add an index inside"""
 
-        directory = "{}/api/v{}/{}".format(self._directory, api_version, handler_name)
+        directory = "{}/api/v{}/{}/{}".format(self._directory, api_version, server_type, handler_name)
         os.makedirs(directory, exist_ok=True)
 
-        with open("{}/api/v{}/{}.rst".format(self._directory, api_version, handler_name), "w+") as f:
+        with open("{}/api/v{}/{}/{}.rst".format(self._directory, api_version, server_type, handler_name), "w+") as f:
             f.write(handler_name.replace("api.", "").replace("_", " ", ).capitalize())
-            f.write("\n---------------------\n\n")
+            f.write("\n-----------------------------\n\n")
             f.write(".. toctree::\n   :glob:\n   :maxdepth: 2\n\n   {}/*\n".format(handler_name))
 
-    def _include_query_example(self, f, method, path, api_version):
+    def _include_query_example(self, f, method, path, api_version, server_type):
         """If a sample session is available we include it in documentation"""
         m = method["method"].lower()
-        query_path = "{}_{}.txt".format(m, self._file_path(path))
+        query_path = "{}_{}_{}.txt".format(server_type, m, self._file_path(path))
         if os.path.isfile(os.path.join(self._directory, "api", "examples", query_path)):
             f.write("Sample session\n***************\n")
-            f.write("\n\n.. literalinclude:: ../../examples/{}\n\n".format(query_path))
+            f.write("\n\n.. literalinclude:: ../../../examples/{}\n\n".format(query_path))
 
     def _file_path(self, path):
-        return re.sub("^v1", "", re.sub("[^a-z0-9]", "", path))
+        path = path.replace("compute", "")
+        path = path.replace("controller", "")
+        return re.sub("^v2", "", re.sub(r"[^a-z0-9]", "", path))
 
     def _write_definitions(self, f, schema):
         if "definitions" in schema:
@@ -125,7 +153,7 @@ class Documentation(object):
 
             if "enum" in prop:
                 field_type = "enum"
-                prop['description'] = "Possible values: {}".format(', '.join(prop['enum']))
+                prop['description'] = "Possible values: {}".format(', '.join(map(lambda a: a or "null", prop['enum'])))
             else:
                 field_type = prop.get("type", "")
 

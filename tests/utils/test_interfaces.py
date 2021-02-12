@@ -17,15 +17,41 @@
 
 import sys
 
-from gns3server.utils.interfaces import interfaces, is_interface_up
+from gns3server.utils.interfaces import interfaces, is_interface_up, has_netmask
 
 
 def test_interfaces():
+
     # This test should pass on all platforms without crash
-    assert isinstance(interfaces(), list)
+    interface_list = interfaces()
+    assert isinstance(interface_list, list)
+    for interface in interface_list:
+        if interface["name"].startswith("vmnet"):
+            assert interface["special"]
+
+        assert "id" in interface
+        assert "name" in interface
+        assert "ip_address" in interface
+        assert "mac_address" in interface
+        if sys.platform.startswith("win"):
+            assert "netcard" in interface
+        assert "type" in interface
+        assert "netmask" in interface
+
+
+def test_has_netmask():
+
+    if sys.platform.startswith("win"):
+        # No loopback
+        pass
+    elif sys.platform.startswith("darwin"):
+        assert has_netmask("lo0") is True
+    else:
+        assert has_netmask("lo") is True
 
 
 def test_is_interface_up():
+
     if sys.platform.startswith("win"):
         # is_interface_up() always returns True on Windows
         pass

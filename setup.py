@@ -19,9 +19,9 @@ import sys
 from setuptools import setup, find_packages
 from setuptools.command.test import test as TestCommand
 
-# we only support Python 3 version >= 3.4
-if sys.version_info < (3, 4):
-    raise SystemExit("Python 3.4 or higher is required")
+# we only support Python 3 version >= 3.5.3
+if len(sys.argv) >= 2 and sys.argv[1] == "install" and sys.version_info < (3, 5, 3):
+    raise SystemExit("Python 3.5.3 or higher is required")
 
 
 class PyTest(TestCommand):
@@ -38,6 +38,7 @@ class PyTest(TestCommand):
         errcode = pytest.main(self.test_args)
         sys.exit(errcode)
 
+
 dependencies = open("requirements.txt", "r").read().splitlines()
 
 setup(
@@ -45,7 +46,7 @@ setup(
     version=__import__("gns3server").__version__,
     url="http://github.com/GNS3/gns3-server",
     license="GNU General Public License v3 (GPLv3)",
-    tests_require=["pytest", "pytest-capturelog"],
+    tests_require=["pytest", "pytest-capturelog", "pytest-aiohttp"],
     cmdclass={"test": PyTest},
     description="GNS3 server",
     long_description=open("README.rst", "r").read(),
@@ -54,24 +55,30 @@ setup(
         "console_scripts": [
             "gns3server = gns3server.main:main",
             "gns3vmnet = gns3server.utils.vmnet:main",
+            "gns3loopback = gns3server.utils.windows_loopback:main"
         ]
     },
     packages=find_packages(".", exclude=["docs", "tests"]),
-    package_data={"gns3server": ["templates/upload.html"]},
     include_package_data=True,
+    zip_safe=False,
     platforms="any",
+    python_requires='>=3.6.0',
+    setup_requires=["setuptools>=17.1"],
     classifiers=[
-        "Development Status :: 4 - Beta",
+        "Development Status :: 5 - Production/Stable",
         "Environment :: Console",
         "Intended Audience :: Information Technology",
         "Topic :: System :: Networking",
         "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
         "Natural Language :: English",
-        "Operating System :: OS Independent",
+        "Operating System :: POSIX",
+        "Operating System :: MacOS :: MacOS X",
+        "Operating System :: Microsoft :: Windows",
         "Programming Language :: Python",
-        "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.4",
-        "Programming Language :: Python :: 3.5",
+        "Programming Language :: Python :: 3 :: Only",
+        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: Implementation :: CPython",
     ],
 )
