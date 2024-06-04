@@ -20,11 +20,19 @@ import json
 import uuid
 import asyncio
 import aiohttp
+import shutil
+import platformdirs
+
+
+try:
+    import importlib_resources
+except ImportError:
+    from importlib import resources as importlib_resources
+
 
 from .appliance import Appliance
 from ..config import Config
 from ..utils.asyncio import locking
-from ..utils.get_resource import get_resource
 
 import logging
 log = logging.getLogger(__name__)
@@ -64,9 +72,9 @@ class ApplianceManager:
 
         return self._appliances
 
-    def appliances_path(self):
+    def _custom_appliances_path(self):
         """
-        Get the image storage directory
+        Get the custom appliance storage directory
         """
 
         server_config = Config.instance().get_section_config("Server")
@@ -74,13 +82,38 @@ class ApplianceManager:
         os.makedirs(appliances_path, exist_ok=True)
         return appliances_path
 
+    def builtin_appliances_path(self, delete_first=False):
+        """
+        Get the built-in appliance storage directory
+        """
+
+        appname = vendor = "GNS3"
+        appliances_dir = os.path.join(platformdirs.user_data_dir(appname, vendor, roaming=True), "appliances")
+        if delete_first:
+            shutil.rmtree(appliances_dir, ignore_errors=True)
+        os.makedirs(appliances_dir, exist_ok=True)
+        return appliances_dir
+
+    def install_builtin_appliances(self):
+        """
+        At startup we copy the built-in appliances files.
+        """
+
+        dst_path = self.builtin_appliances_path(delete_first=True)
+        log.info(f"Installing built-in appliances in '{dst_path}'")
+        from . import Controller
+        try:
+            Controller.instance().install_resource_files(dst_path, "appliances")
+        except OSError as e:
+            log.error(f"Could not install built-in appliance files to {dst_path}: {e}")
+
     def load_appliances(self, symbol_theme="Classic"):
         """
         Loads appliance files from disk.
         """
 
         self._appliances = {}
-        for directory, builtin in ((get_resource('appliances'), True,), (self.appliances_path(), False,)):
+        for directory, builtin in ((self.builtin_appliances_path(), True,), (self._custom_appliances_path(), False,)):
             if directory and os.path.isdir(directory):
                 for file in os.listdir(directory):
                     if not file.endswith('.gns3a') and not file.endswith('.gns3appliance'):
@@ -168,7 +201,10 @@ class ApplianceManager:
                 log.info("Checking if appliances are up-to-date (ETag {})".format(self._appliances_etag))
                 headers["If-None-Match"] = self._appliances_etag
             async with aiohttp.ClientSession() as session:
-                async with session.get('https://api.github.com/repos/GNS3/gns3-registry/contents/appliances', headers=headers) as response:
+                async with session.get(
+                        'https://api.github.com/repos/GNS3/gns3-registry/contents/appliances',
+                        headers=headers
+                ) as response:
                     if response.status == 304:
                         log.info("Appliances are already up-to-date (ETag {})".format(self._appliances_etag))
                         return
@@ -180,7 +216,8 @@ class ApplianceManager:
                         from . import Controller
                         Controller.instance().save()
                     json_data = await response.json()
-                appliances_dir = get_resource('appliances')
+                appliances_dir = self.builtin_appliances_path()
+                downloaded_appliance_files = []
                 for appliance in json_data:
                     if appliance["type"] == "file":
                         appliance_name = appliance["name"]
@@ -201,6 +238,21 @@ class ApplianceManager:
                                     f.write(appliance_data)
                             except OSError as e:
                                 raise aiohttp.web.HTTPConflict(text="Could not write appliance file '{}': {}".format(path, e))
+                        downloaded_appliance_files.append(appliance_name)
+
+                # delete old appliance files
+                for filename in os.listdir(appliances_dir):
+                    file_path = os.path.join(appliances_dir, filename)
+                    if filename in downloaded_appliance_files:
+                        continue
+                    try:
+                        if os.path.isfile(file_path) or os.path.islink(file_path):
+                            log.info("Deleting old appliance file {}".format(file_path))
+                            os.unlink(file_path)
+                    except OSError as e:
+                        log.warning("Could not delete old appliance file '{}': {}".format(file_path, e))
+                        continue
+
         except ValueError as e:
             raise aiohttp.web.HTTPConflict(text="Could not read appliances information from GitHub: {}".format(e))
 

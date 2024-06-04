@@ -1,4 +1,5 @@
 {
+    "appliance_id": "4368f802-ddec-4863-adbd-a36a6d83cd4c",
     "name": "Cisco IOSvL2",
     "category": "multilayer_switch",
     "description": "Cisco Virtual IOS L2 allows user to run a IOS switching image on a standard computer.",
@@ -6,7 +7,7 @@
     "vendor_url": "http://www.cisco.com/",
     "product_name": "IOSvL2",
     "product_url": "http://virl.cisco.com/",
-    "registry_version": 3,
+    "registry_version": 4,
     "status": "stable",
     "maintainer": "GNS3 Team",
     "maintainer_email": "developers@gns3.net",
@@ -20,10 +21,23 @@
         "hda_disk_interface": "virtio",
         "arch": "x86_64",
         "console_type": "telnet",
-        "kvm": "require",
-        "options": "-machine pc-q35-4.2"
+        "kvm": "require"
     },
     "images": [
+        {
+            "filename": "vios_l2-adventerprisek9-m.ssa.high_iron_20200929.qcow2",
+            "version": "15.2(20200924:215240)",
+            "md5sum": "99ecab32de12410c533e6abd4e9710aa",
+            "filesize": 90409984,
+            "download_url": "https://learningnetworkstore.cisco.com/myaccount"
+        },
+        {
+            "filename": "vios_l2-adventerprisek9-m.ssa.high_iron_20190423.qcow2",
+            "version": "15.2(6.0.81)E",
+            "md5sum": "71cacb678f98a106f99e889b97b34686",
+            "filesize": 44950016,
+            "download_url": "https://learningnetworkstore.cisco.com/myaccount"
+        },
         {
             "filename": "vios_l2-adventerprisek9-m.SSA.high_iron_20180619.qcow2",
             "version": "15.2.1",
@@ -47,6 +61,18 @@
         }
     ],
     "versions": [
+        {
+            "name": "15.2(20200924:215240)",
+            "images": {
+                "hda_disk_image": "vios_l2-adventerprisek9-m.ssa.high_iron_20200929.qcow2"
+            }
+        },
+        {
+            "name": "15.2(6.0.81)E",
+            "images": {
+                "hda_disk_image": "vios_l2-adventerprisek9-m.ssa.high_iron_20190423.qcow2"
+            }
+        },
         {
             "name": "15.2.1",
             "images": {

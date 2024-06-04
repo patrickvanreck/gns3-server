@@ -130,16 +130,27 @@ class Project:
         self._iou_id_lock = asyncio.Lock()
 
         log.debug('Project "{name}" [{id}] loaded'.format(name=self.name, id=self._id))
+        self.emit_controller_notification("project.created", self.__json__())
 
     def emit_notification(self, action, event):
         """
-        Emit a notification to all clients using this project.
+        Emit a project notification to all clients using this project.
 
         :param action: Action name
         :param event: Event to send
         """
 
-        self.controller.notification.project_emit(action, event, project_id=self.id)
+        self._controller.notification.project_emit(action, event, project_id=self.id)
+
+    def emit_controller_notification(self, action, event):
+        """
+        Emit a controller notification, all clients will see it.
+
+        :param action: Action name
+        :param event: Event to send
+        """
+
+        self._controller.notification.controller_emit(action, event)
 
     async def update(self, **kwargs):
         """
@@ -154,7 +165,7 @@ class Project:
 
         # We send notif only if object has changed
         if old_json != self.__json__():
-            self.emit_notification("project.updated", self.__json__())
+            self.emit_controller_notification("project.updated", self.__json__())
             self.dump()
 
             # update on computes
@@ -798,12 +809,13 @@ class Project:
             try:
                 await compute.post("/projects/{}/close".format(self._id), dont_connect=True)
             # We don't care if a compute is down at this step
-            except (ComputeError, aiohttp.web.HTTPError, aiohttp.ClientResponseError, TimeoutError):
+            except (ComputeError, aiohttp.web.HTTPError, aiohttp.ClientError, TimeoutError):
                 pass
         self._clean_pictures()
         self._status = "closed"
         if not ignore_notification:
-            self.emit_notification("project.closed", self.__json__())
+            self.emit_controller_notification("project.closed", self.__json__())
+
         self.reset()
         self._closing = False
 
@@ -857,6 +869,7 @@ class Project:
             shutil.rmtree(self.path)
         except OSError as e:
             raise aiohttp.web.HTTPConflict(text="Cannot delete project directory {}: {}".format(self.path, str(e)))
+        self.emit_controller_notification("project.deleted", self.__json__())
 
     async def delete_on_computes(self):
         """
@@ -957,6 +970,8 @@ class Project:
                 link = await self.add_link(link_id=link_data["link_id"])
                 if "filters" in link_data:
                     await link.update_filters(link_data["filters"])
+                if "link_style" in link_data:
+                    await link.update_link_style(link_data["link_style"])
                 for node_link in link_data.get("nodes", []):
                     node = self.get_node(node_link["node_id"])
                     port = node.get_port(node_link["adapter_number"], node_link["port_number"])
@@ -974,7 +989,7 @@ class Project:
                 await self.add_drawing(dump=False, **drawing_data)
 
             self.dump()
-        # We catch all error to be able to rollback the .gns3 to the previous state
+        # We catch all error to be able to roll back the .gns3 to the previous state
         except Exception as e:
             for compute in list(self._project_created_on_compute):
                 try:
@@ -999,6 +1014,7 @@ class Project:
             pass
 
         self._loading = False
+        self.emit_controller_notification("project.opened", self.__json__())
         # Should we start the nodes when project is open
         if self._auto_start:
             # Start all in the background without waiting for completion
@@ -1120,6 +1136,17 @@ class Project:
         pool = Pool(concurrency=3)
         for node in self.nodes.values():
             pool.append(node.suspend)
+        await pool.join()
+
+    @open_required
+    async def reset_console_all(self):
+        """
+        Reset console for all nodes
+        """
+
+        pool = Pool(concurrency=3)
+        for node in self.nodes.values():
+            pool.append(node.reset_console)
         await pool.join()
 
     @open_required

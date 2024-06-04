@@ -15,6 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import ipaddress
 import aiohttp
 import asyncio
 import html
@@ -25,6 +26,7 @@ import os
 from .compute import ComputeConflict, ComputeError
 from .ports.port_factory import PortFactory, StandardPortFactory, DynamipsPortFactory
 from ..utils.images import images_directories
+from ..config import Config
 from ..utils.qt import qt_font_to_style
 
 
@@ -33,7 +35,7 @@ log = logging.getLogger(__name__)
 
 
 class Node:
-    # This properties are used only on controller and are not forwarded to the compute
+    # These properties are used only on controller and are not forwarded to computes
     CONTROLLER_ONLY_PROPERTIES = ["x", "y", "z", "locked", "width", "height", "symbol", "label", "console_host",
                                   "port_name_format", "first_port_name", "port_segment_size", "ports",
                                   "category", "console_auto_start"]
@@ -263,10 +265,12 @@ class Node:
         if val is None:
             val = ":/symbols/computer.svg"
 
-        # No abs path, fix them (bug of 1.X)
         try:
-            if not val.startswith(":") and os.path.abspath(val):
-                val = os.path.basename(val)
+            if not val.startswith(":") and os.path.isabs(val):
+                server_config = Config.instance().get_section_config("Server")
+                default_symbol_directory = os.path.expanduser(server_config.get("symbols_path", "~/GNS3/symbols"))
+                if os.path.commonprefix([default_symbol_directory, val]) != default_symbol_directory:
+                    val = os.path.basename(val)
         except OSError:
             pass
 
@@ -481,7 +485,7 @@ class Node:
 
         # None properties are not be send. Because it can mean the emulator doesn't support it
         for key in list(data.keys()):
-            if data[key] is None or data[key] is {} or key in self.CONTROLLER_ONLY_PROPERTIES:
+            if data[key] is None or data[key] == {} or key in self.CONTROLLER_ONLY_PROPERTIES:
                 del data[key]
 
         return data
@@ -535,6 +539,17 @@ class Node:
             await self.post("/reload", timeout=240)
         except asyncio.TimeoutError:
             raise aiohttp.web.HTTPRequestTimeout(text="Timeout when reloading {}".format(self._name))
+
+    async def reset_console(self):
+        """
+        Reset the console
+        """
+
+        if self._console and self._console_type == "telnet":
+            try:
+                await self.post("/console/reset", timeout=240)
+            except asyncio.TimeoutError:
+                raise aiohttp.web.HTTPRequestTimeout(text="Timeout when reset console {}".format(self._name))
 
     async def post(self, path, data=None, **kwargs):
         """
@@ -702,6 +717,17 @@ class Node:
                 "first_port_name": self._first_port_name,
                 "custom_adapters": self._custom_adapters
             }
+
+        # add brackets around console host for http/https console type
+        console_host = str(self._compute.console_host)
+        if self._console_type == "http" or self._console_type == "https":
+            try:
+                ip = ipaddress.ip_address(console_host)
+                if isinstance(ip, ipaddress.IPv6Address):
+                        console_host = '[' + console_host + ']'
+            except ValueError:
+                pass
+
         return {
             "compute_id": str(self._compute.id),
             "project_id": self._project.id,
@@ -711,7 +737,7 @@ class Node:
             "node_directory": self._node_directory,
             "name": self._name,
             "console": self._console,
-            "console_host": str(self._compute.console_host),
+            "console_host": console_host,
             "console_type": self._console_type,
             "console_auto_start": self._console_auto_start,
             "command_line": self._command_line,

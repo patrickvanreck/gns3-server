@@ -24,6 +24,7 @@ import aiohttp
 from unittest.mock import MagicMock, patch
 from tests.utils import AsyncioMagicMock, asyncio_patch
 
+from gns3server.config import Config
 from gns3server.controller.compute import Compute
 from gns3server.version import __version__
 
@@ -380,18 +381,43 @@ async def test_get_free_project_name(controller):
     assert controller.get_free_project_name("Hello") == "Hello"
 
 
-async def test_load_base_files(controller, config, tmpdir):
+async def test_install_base_configs(controller, config, tmpdir):
 
     config.set_section_config("Server", {"configs_path": str(tmpdir)})
     with open(str(tmpdir / 'iou_l2_base_startup-config.txt'), 'w+') as f:
         f.write('test')
 
-    controller.load_base_files()
+    controller._install_base_configs()
     assert os.path.exists(str(tmpdir / 'iou_l3_base_startup-config.txt'))
 
-    # Check is the file has not been overwrite
+    # Check is the file has not been overwritten
     with open(str(tmpdir / 'iou_l2_base_startup-config.txt')) as f:
         assert f.read() == 'test'
+
+
+@pytest.mark.parametrize(
+    "builtin_disk",
+    [
+        "empty8G.qcow2",
+        "empty10G.qcow2",
+        "empty20G.qcow2",
+        "empty30G.qcow2",
+        "empty40G.qcow2",
+        "empty50G.qcow2",
+        "empty100G.qcow2",
+        "empty150G.qcow2",
+        "empty200G.qcow2",
+        "empty250G.qcow2",
+        "empty500G.qcow2",
+        "empty1T.qcow2"
+    ]
+)
+async def test_install_builtin_disks(controller, config, tmpdir, builtin_disk):
+
+    config.set_section_config("Server", {"images_path": str(tmpdir)})
+    controller._install_builtin_disks()
+    # we only install Qemu empty disks at this time
+    assert os.path.exists(str(tmpdir / "QEMU" / builtin_disk))
 
 
 def test_appliances(controller, tmpdir):
@@ -409,6 +435,7 @@ def test_appliances(controller, tmpdir):
     with open(str(tmpdir / "my_appliance2.gns3a"), 'w+') as f:
         json.dump(my_appliance, f)
 
+    controller.appliance_manager.install_builtin_appliances()
     with patch("gns3server.config.Config.get_section_config", return_value={"appliances_path": str(tmpdir)}):
         controller.appliance_manager.load_appliances()
     assert len(controller.appliance_manager.appliances) > 0
@@ -449,6 +476,15 @@ def test_load_templates(controller):
             assert qemu_uuid == template.id
         elif template.name == "Cloud":
             assert cloud_uuid == template.id
+
+
+def test_load_templates_without_builtins(controller):
+
+    config = Config.instance()
+    config.set("Server", "enable_builtin_templates", False)
+    controller.template_manager.load_templates()
+
+    assert not controller.template_manager.templates.values()
 
 
 async def test_autoidlepc(controller):

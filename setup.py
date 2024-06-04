@@ -16,12 +16,16 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import sys
+import os
+import shutil
+import subprocess
+
 from setuptools import setup, find_packages
 from setuptools.command.test import test as TestCommand
 
-# we only support Python 3 version >= 3.5.3
-if len(sys.argv) >= 2 and sys.argv[1] == "install" and sys.version_info < (3, 5, 3):
-    raise SystemExit("Python 3.5.3 or higher is required")
+# we only support Python 3 version >= 3.7
+if len(sys.argv) >= 2 and sys.argv[1] == "install" and sys.version_info < (3, 7):
+    raise SystemExit("Python 3.7 or higher is required")
 
 
 class PyTest(TestCommand):
@@ -49,7 +53,8 @@ setup(
     tests_require=["pytest", "pytest-capturelog", "pytest-aiohttp"],
     cmdclass={"test": PyTest},
     description="GNS3 server",
-    long_description=open("README.rst", "r").read(),
+    long_description=open("README.md", "r").read(),
+    long_description_content_type="text/markdown",
     install_requires=dependencies,
     entry_points={
         "console_scripts": [
@@ -58,11 +63,11 @@ setup(
             "gns3loopback = gns3server.utils.windows_loopback:main"
         ]
     },
-    packages=find_packages(".", exclude=["docs", "tests"]),
+    packages=find_packages(".", exclude=["docs", "tests*"]),
     include_package_data=True,
     zip_safe=False,
     platforms="any",
-    python_requires='>=3.6.0',
+    python_requires='>=3.7',
     setup_requires=["setuptools>=17.1"],
     classifiers=[
         "Development Status :: 5 - Production/Stable",
@@ -76,9 +81,11 @@ setup(
         "Operating System :: Microsoft :: Windows",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.6",
-        "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: Implementation :: CPython",
     ],
 )

@@ -1,4 +1,5 @@
 {
+    "appliance_id": "95d17663-f40a-437f-b5f1-dab4779965de",
     "name": "Cisco CSR1000v",
     "category": "router",
     "description": "The Cisco Cloud Services Router 1000V (CSR 1000V) is a router and network services platform in virtual form factor that is intended for deployment in cloud and virtual data centers. It is optimized to serve as a single-tenant or multitenant WAN gateway. Using proven, industry-leading Cisco IOS\u00ae XE Software networking and security features, the CSR 1000V enables enterprises to transparently extend their WANs into external provider-hosted clouds and cloud providers to offer their tenants enterprise-class networking services.",
@@ -7,7 +8,7 @@
     "documentation_url": "http://www.cisco.com/c/en/us/support/routers/cloud-services-router-1000v-series/products-installation-and-configuration-guides-list.html",
     "product_name": "CSR1000v",
     "product_url": "http://www.cisco.com/c/en/us/support/routers/cloud-services-router-1000v-series/tsd-products-support-series-home.html",
-    "registry_version": 3,
+    "registry_version": 4,
     "status": "stable",
     "maintainer": "GNS3 Team",
     "maintainer_email": "developers@gns3.net",
@@ -23,6 +24,13 @@
         "kvm": "require"
     },
     "images": [
+        {
+            "filename": "csr1000v-universalk9.17.03.06-serial.qcow2",
+            "version": "17.03.06",
+            "md5sum": "086ab9bef6e66de847af0da3910c60e8",
+            "filesize": 1422000128,
+            "download_url": "https://software.cisco.com/download/home/284364978/type/282046477/release/Gibraltar-16.12.3"
+        },
         {
             "filename": "csr1000v-universalk9.16.12.03-serial.qcow2",
             "version": "16.12.3",
@@ -158,6 +166,12 @@
         }
     ],
     "versions": [
+        {
+            "name": "17.03.06",
+            "images": {
+                "hda_disk_image": "csr1000v-universalk9.17.03.06-serial.qcow2"
+            }
+        },
         {
             "name": "16.12.3",
             "images": {

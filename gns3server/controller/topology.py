@@ -63,13 +63,13 @@ def _check_topology_schema(topo):
         error = "Invalid data in topology file: {} in schema: {}".format(
             e.message,
             json.dumps(e.schema))
-        log.critical(error)
+        log.debug(error)
         raise aiohttp.web.HTTPConflict(text=error)
 
 
 def project_to_topology(project):
     """
-    :return: A dictionnary with the topology ready to dump to a .gns3
+    :return: A dictionary with the topology ready to dump to a .gns3
     """
     data = {
         "project_id": project.id,
@@ -223,7 +223,7 @@ def _convert_2_1_0(topo, topo_path):
             if node["node_type"] in ("qemu", "vmware", "virtualbox"):
                 if "acpi_shutdown" in node["properties"]:
                     if node["properties"]["acpi_shutdown"] is True:
-                        node["properties"]["on_close"] = "save_vm_sate"
+                        node["properties"]["on_close"] = "save_vm_state"
                     else:
                         node["properties"]["on_close"] = "power_off"
                     del node["properties"]["acpi_shutdown"]

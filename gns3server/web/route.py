@@ -147,7 +147,7 @@ class Route(object):
             else:
                 route = path
 
-            # Compute metadata for the documentation
+            # Compute metadata for the documentation
             if api_version:
                 handler = func.__module__.replace("_handler", "").replace("gns3server.handlers.api.", "")
                 cls._documentation.setdefault(handler, {})
@@ -164,8 +164,6 @@ class Route(object):
                     "description": kw.get("description", ""),
                 })
 
-            func = asyncio.coroutine(func)
-
             async def control_schema(request):
                 # This block is executed at each method call
                 server_config = Config.instance().get_section_config("Server")
@@ -181,7 +179,10 @@ class Route(object):
                         response = Response(request=request, route=route, output_schema=output_schema)
 
                         request = await parse_request(request, None, raw)
-                        await func(request, response)
+                        if asyncio.iscoroutinefunction(func):
+                            await func(request, response)
+                        else:
+                            func(request, response)
                         return response
 
                     # API call
@@ -195,7 +196,10 @@ class Route(object):
                         except OSError as e:
                             log.warning("Could not write to the record file {}: {}".format(record_file, e))
                     response = Response(request=request, route=route, output_schema=output_schema)
-                    await func(request, response)
+                    if asyncio.iscoroutinefunction(func):
+                        await func(request, response)
+                    else:
+                        func(request, response)
                 except aiohttp.web.HTTPBadRequest as e:
                     response = Response(request=request, route=route)
                     response.set_status(e.status)
@@ -228,8 +232,7 @@ class Route(object):
                     response.set_status(408)
                     response.json({"message": "Request canceled", "status": 408})
                     raise  # must raise to let aiohttp know the connection has been closed
-                except aiohttp.ClientError:
-                    log.warning("Client error")
+                except (ConnectionResetError, aiohttp.ClientError):
                     response = Response(request=request, route=route)
                     response.set_status(408)
                     response.json({"message": "Client error", "status": 408})

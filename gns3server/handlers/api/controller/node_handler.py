@@ -17,6 +17,7 @@
 
 import aiohttp
 import asyncio
+import ipaddress
 
 from gns3server.web.route import Route
 from gns3server.controller import Controller
@@ -28,6 +29,9 @@ from gns3server.schemas.node import (
     NODE_CREATE_SCHEMA,
     NODE_DUPLICATE_SCHEMA
 )
+
+import logging
+log = logging.getLogger(__name__)
 
 
 class NodeHandler:
@@ -409,21 +413,19 @@ class NodeHandler:
         path = request.match_info["path"]
         path = force_unix_path(path)
 
-
         # Raise error if user try to escape
-        if path[0] == ".":
+        if path[0] == "." or "/../" in path:
             raise aiohttp.web.HTTPForbidden()
 
         node_type = node.node_type
         path = "/project-files/{}/{}/{}".format(node_type, node.id, path)
-
         res = await node.compute.http_query("GET", "/projects/{project_id}/files{path}".format(project_id=project.id, path=path), timeout=None, raw=True)
-        response.set_status(200)
-        response.content_type = "application/octet-stream"
-        response.enable_chunked_encoding()
-        await response.prepare(request)
-        await response.write(res.body)
-        # await response.write_eof() #FIXME: shound't be needed anymore
+        response.set_status(res.status)
+        if res.status == 200:
+            response.content_type = "application/octet-stream"
+            response.enable_chunked_encoding()
+            await response.prepare(request)
+            await response.write(res.body)
 
     @Route.post(
         r"/projects/{project_id}/nodes/{node_id}/files/{path:.+}",
@@ -446,14 +448,14 @@ class NodeHandler:
         path = force_unix_path(path)
 
         # Raise error if user try to escape
-        if path[0] == ".":
+        if path[0] == "." or "/../" in path:
             raise aiohttp.web.HTTPForbidden()
 
         node_type = node.node_type
         path = "/project-files/{}/{}/{}".format(node_type, node.id, path)
         data = await request.content.read()  #FIXME: are we handling timeout or large files correctly?
-        await node.compute.http_query("POST", "/projects/{project_id}/files{path}".format(project_id=project.id, path=path), data=data, timeout=None, raw=True)
-        response.set_status(201)
+        res = await node.compute.http_query("POST", "/projects/{project_id}/files{path}".format(project_id=project.id, path=path), data=data, timeout=None, raw=True)
+        response.set_status(res.status)
 
     @Route.get(
         r"/projects/{project_id}/nodes/{node_id}/console/ws",
@@ -476,11 +478,27 @@ class NodeHandler:
         await ws.prepare(request)
         request.app['websockets'].add(ws)
 
-        ws_console_compute_url = "ws://{compute_host}:{compute_port}/v2/compute/projects/{project_id}/{node_type}/nodes/{node_id}/console/ws".format(compute_host=compute.host,
-                                                                                                                                                     compute_port=compute.port,
-                                                                                                                                                     project_id=project.id,
-                                                                                                                                                     node_type=node.node_type,
-                                                                                                                                                     node_id=node.id)
+        compute_host = compute.host
+        try:
+            # handle IPv6 address
+            ip = ipaddress.ip_address(compute_host)
+            if isinstance(ip, ipaddress.IPv6Address):
+                compute_host = '[' + compute_host + ']'
+        except ValueError:
+            pass
+
+        ws_protocol = "ws"
+        if request.scheme == "https":
+            ws_protocol = "wss"
+
+        ws_console_compute_url = "{protocol}://{compute_host}:{compute_port}/v2/compute/projects/{project_id}/{node_type}/nodes/{node_id}/console/ws".format(
+            protocol=ws_protocol,
+            compute_host=compute_host,
+            compute_port=compute.port,
+            project_id=project.id,
+            node_type=node.node_type,
+            node_id=node.id
+        )
 
         async def ws_forward(ws_client):
             async for msg in ws:
@@ -493,7 +511,7 @@ class NodeHandler:
 
         try:
             async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(limit=None, force_close=True)) as session:
-                async with session.ws_connect(ws_console_compute_url) as ws_client:
+                async with session.ws_connect(ws_console_compute_url, ssl=False) as ws_client:
                     asyncio.ensure_future(ws_forward(ws_client))
                     async for msg in ws_client:
                         if msg.type == aiohttp.WSMsgType.TEXT:
@@ -502,9 +520,50 @@ class NodeHandler:
                             await ws.send_bytes(msg.data)
                         elif msg.type == aiohttp.WSMsgType.ERROR:
                             break
+        except ConnectionResetError:
+            log.info("Websocket console connection with compute disconnected")
+        except aiohttp.ClientError as e:
+            log.error("Websocket console connection with compute failed: {}".format(e))
         finally:
             if not ws.closed:
                 await ws.close()
             request.app['websockets'].discard(ws)
 
         return ws
+
+    @Route.post(
+        r"/projects/{project_id}/nodes/console/reset",
+        parameters={
+            "project_id": "Project UUID"
+        },
+        status_codes={
+            204: "All nodes successfully reset consoles",
+            400: "Invalid request",
+            404: "Instance doesn't exist"
+        },
+        description="Reset console for all nodes belonging to the project",
+        output=NODE_OBJECT_SCHEMA)
+    async def reset_console_all(request, response):
+
+        project = await Controller.instance().get_loaded_project(request.match_info["project_id"])
+        await project.reset_console_all()
+        response.set_status(204)
+
+    @Route.post(
+        r"/projects/{project_id}/nodes/{node_id}/console/reset",
+        parameters={
+            "project_id": "Project UUID",
+            "node_id": "Node UUID"
+        },
+        status_codes={
+            204: "Console reset",
+            400: "Invalid request",
+            404: "Instance doesn't exist"
+        },
+        description="Reload a node instance")
+    async def console_reset(request, response):
+
+        project = await Controller.instance().get_loaded_project(request.match_info["project_id"])
+        node = project.get_node(request.match_info["node_id"])
+        await node.post("/console/reset", request.json)
+        response.set_status(204)

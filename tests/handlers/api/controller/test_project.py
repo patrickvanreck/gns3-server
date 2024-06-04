@@ -186,7 +186,9 @@ async def test_notification(controller_api, http_client, project, controller):
         assert b'"cpu_usage_percent"' in response.body
         assert b'{"action": "node.created", "event": {"a": "b"}}\n' in response.body
         assert project.status == "opened"
-
+        controller.notification.project_emit("node.updated", {"a": "b"})
+        controller.notification.project_emit("node.deleted", {"a": "b"})
+        controller.notification.project_emit("snapshot.restored", {"a": "b"})
 
 async def test_notification_invalid_id(controller_api):
 
@@ -318,7 +320,7 @@ async def test_get_file(controller_api, project):
 async def test_write_file(controller_api, project):
 
     response = await controller_api.post("/projects/{project_id}/files/hello".format(project_id=project.id), body="world", raw=True)
-    assert response.status == 200
+    assert response.status == 201
 
     with open(os.path.join(project.path, "hello")) as f:
         assert f.read() == "world"

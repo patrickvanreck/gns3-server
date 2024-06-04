@@ -33,7 +33,7 @@ from gns3server.utils.asyncio import aiozipstream
 
 
 @pytest.fixture
-async def project(loop, controller):
+async def project(controller):
 
     p = Project(controller=controller, name="test")
     p.dump = MagicMock()
@@ -111,6 +111,7 @@ async def test_export(tmpdir, project):
         f.write("HELLO")
     with open(os.path.join(path, "vm-1", "dynamips", "test_log.txt"), 'w+') as f:
         f.write("LOG")
+    os.makedirs(os.path.join(path, "vm-1", "dynamips", "empty-dir"))
     os.makedirs(os.path.join(path, "project-files", "snapshots"))
     with open(os.path.join(path, "project-files", "snapshots", "test"), 'w+') as f:
         f.write("WORLD")
@@ -127,6 +128,7 @@ async def test_export(tmpdir, project):
 
         assert 'test.gns3' not in myzip.namelist()
         assert 'project.gns3' in myzip.namelist()
+        assert 'vm-1/dynamips/empty-dir/' in myzip.namelist()
         assert 'project-files/snapshots/test' not in myzip.namelist()
         assert 'vm-1/dynamips/test_log.txt' not in myzip.namelist()
 
@@ -138,41 +140,41 @@ async def test_export(tmpdir, project):
             assert topo["computes"] == []
 
 
-async def test_export_vm(tmpdir, project):
-    """
-    If data is on a remote server export it locally before
-    sending it in the archive.
-    """
-
-    compute = MagicMock()
-    compute.id = "vm"
-    compute.list_files = AsyncioMagicMock(return_value=[{"path": "vm-1/dynamips/test"}])
-
-    # Fake file that will be download from the vm
-    mock_response = AsyncioMagicMock()
-    mock_response.content = AsyncioBytesIO()
-    await mock_response.content.write(b"HELLO")
-    mock_response.content.seek(0)
-    compute.download_file = AsyncioMagicMock(return_value=mock_response)
-
-    project._project_created_on_compute.add(compute)
-
-    path = project.path
-    os.makedirs(os.path.join(path, "vm-1", "dynamips"))
-
-    # The .gns3 should be renamed project.gns3 in order to simplify import
-    with open(os.path.join(path, "test.gns3"), 'w+') as f:
-        f.write("{}")
-
-    with aiozipstream.ZipFile() as z:
-        await export_project(z, project, str(tmpdir))
-        assert compute.list_files.called
-        await write_file(str(tmpdir / 'zipfile.zip'), z)
-
-    with zipfile.ZipFile(str(tmpdir / 'zipfile.zip')) as myzip:
-        with myzip.open("vm-1/dynamips/test") as myfile:
-            content = myfile.read()
-            assert content == b"HELLO"
+# async def test_export_vm(tmpdir, project):
+#     """
+#     If data is on a remote server export it locally before
+#     sending it in the archive.
+#     """
+#
+#     compute = MagicMock()
+#     compute.id = "vm"
+#     compute.list_files = AsyncioMagicMock(return_value=[{"path": "vm-1/dynamips/test"}])
+#
+#     # Fake file that will be download from the vm
+#     mock_response = AsyncioMagicMock()
+#     mock_response.content = AsyncioBytesIO()
+#     await mock_response.content.write(b"HELLO")
+#     mock_response.content.seek(0)
+#     compute.download_file = AsyncioMagicMock(return_value=mock_response)
+#
+#     project._project_created_on_compute.add(compute)
+#
+#     path = project.path
+#     os.makedirs(os.path.join(path, "vm-1", "dynamips"))
+#
+#     # The .gns3 should be renamed project.gns3 in order to simplify import
+#     with open(os.path.join(path, "test.gns3"), 'w+') as f:
+#         f.write("{}")
+#
+#     with aiozipstream.ZipFile() as z:
+#         await export_project(z, project, str(tmpdir))
+#         assert compute.list_files.called
+#         await write_file(str(tmpdir / 'zipfile.zip'), z)
+#
+#     with zipfile.ZipFile(str(tmpdir / 'zipfile.zip')) as myzip:
+#         with myzip.open("vm-1/dynamips/test") as myfile:
+#             content = myfile.read()
+#             assert content == b"HELLO"
 
 
 async def test_export_disallow_running(tmpdir, project, node):

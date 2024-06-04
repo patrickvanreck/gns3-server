@@ -1,4 +1,5 @@
 {
+    "appliance_id": "0be28230-875d-4d61-8cd8-43ed66269535",
     "name": "Smoothwall Express",
     "category": "firewall",
     "description": "A Free firewall that includes its own security-hardened GNU/Linux operating system and an easy-to-use web interface.",
@@ -7,7 +8,7 @@
     "documentation_url": "https://sourceforge.net/projects/smoothwall/files/SmoothWall%20Manuals/",
     "product_name": "Smoothwall Express",
     "product_url": "http://www.smoothwall.org/about/",
-    "registry_version": 3,
+    "registry_version": 4,
     "status": "stable",
     "maintainer": "GNS3 Team",
     "maintainer_email": "developers@gns3.net",

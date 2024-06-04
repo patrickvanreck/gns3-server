@@ -1,11 +1,12 @@
 {
+    "appliance_id": "5952eca3-fc06-4a57-a3b0-986237cb7de7",
     "name": "Brocade Virtual ADX",
     "category": "firewall",
     "description": "The Brocade Virtual ADX (vADX\u2122) is a full-fledged Application Delivery Controller (ADC) platform with a virtual footprint that leverages Intel advanced technology to deliver remarkable performance. The software is designed to run on standardsbased hypervisors, hosted on Intel x86 COTS hardware. It offers a complete suite of Layer 4 and Layer 7 server load balancing capabilities and application security services with extensible management via rich SOAP/XML APIs.",
     "vendor_name": "Brocade",
     "vendor_url": "https://www.brocade.com",
     "product_name": "Virtual ADX",
-    "registry_version": 3,
+    "registry_version": 4,
     "status": "experimental",
     "maintainer": "GNS3 Team",
     "maintainer_email": "developers@gns3.net",

@@ -1,4 +1,5 @@
 {
+    "appliance_id": "2370a587-20e7-468e-ace9-7bd61063aff4",
     "name": "Sophos XG Firewall",
     "category": "firewall",
     "description": "Sophos XG Firewall delivers the ultimate enterprise firewall performance, security, and control.\n\nFastpath packet optimization technology with up to 140Gbps throughput\nRevolutionary Security Heartbeat\u2122 for improved Advanced Threat Protection (ATP) and response\nPatented Layer-8 user identity control and visibility\nUnified App, Web, QoS, and IPS Policy simplifies management\nApp risk factor and user threat quotient monitors risk levels",
@@ -7,7 +8,7 @@
     "documentation_url": "https://www.sophos.com/en-us/support/documentation/sophos-xg-firewall.aspx",
     "product_name": "Sophos XG Firewall",
     "product_url": "https://www.sophos.com/en-us/products/next-gen-firewall.aspx",
-    "registry_version": 3,
+    "registry_version": 4,
     "status": "experimental",
     "maintainer": "GNS3 Team",
     "maintainer_email": "developers@gns3.net",
@@ -23,6 +24,20 @@
         "kvm": "require"
     },
     "images": [
+        {
+            "filename": "VI-18.5.2_MR-2.KVM-380-PRIMARY.qcow2",
+            "version": "18.5.2 MR2",
+            "md5sum": "d3b99cd9519fae06e4ef348af34fef2b",
+            "filesize": 458555392,
+            "download_url": "https://secure2.sophos.com/en-us/products/next-gen-firewall/free-trial.aspx"
+        },
+        {
+            "filename": "VI-18.5.2_MR-2.KVM-380-AUXILIARY.qcow2",
+            "version": "18.5.2 MR2",
+            "md5sum": "9cf2ebc15c92f712e28f8e45a29ee613",
+            "filesize": 11272192,
+            "download_url": "https://secure2.sophos.com/en-us/products/next-gen-firewall/free-trial.aspx"
+        },
         {
             "filename": "VI-17.1.3_MR-3.KVM-250-PRIMARY.qcow2",
             "version": "17.1.3 MR3",
@@ -123,6 +138,13 @@
         }
     ],
     "versions": [
+        {
+            "name": "18.5.2 MR2",
+            "images": {
+                "hda_disk_image": "VI-18.5.2_MR-2.KVM-380-PRIMARY.qcow2",
+                "hdb_disk_image": "VI-18.5.2_MR-2.KVM-380-AUXILIARY.qcow2"
+            }
+        },
         {
             "name": "17.1.3 MR3",
             "images": {

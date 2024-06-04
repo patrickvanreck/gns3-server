@@ -140,6 +140,9 @@ class VPCSVM(BaseNode):
 
         vpcs_path = self._manager.config.get_section_config("VPCS").get("vpcs_path", "vpcs")
         if not os.path.isabs(vpcs_path):
+            if sys.platform.startswith("win") and hasattr(sys, "frozen"):
+                vpcs_dir = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(sys.executable)), "vpcs"))
+                os.environ["PATH"] = os.pathsep.join(vpcs_dir) + os.pathsep + os.environ.get("PATH", "")
             vpcs_path = shutil.which(vpcs_path)
         return vpcs_path
 
@@ -251,7 +254,7 @@ class VPCSVM(BaseNode):
                 log.error("Could not start VPCS {}: {}\n{}".format(self._vpcs_path(), e, vpcs_stdout))
                 raise VPCSError("Could not start VPCS {}: {}\n{}".format(self._vpcs_path(), e, vpcs_stdout))
 
-    def _termination_callback(self, returncode):
+    async def _termination_callback(self, returncode):
         """
         Called when the process has stopped.
 
@@ -263,6 +266,8 @@ class VPCSVM(BaseNode):
             self._started = False
             self.status = "stopped"
             self._process = None
+            await self._stop_ubridge()
+            await super().stop()
             if returncode != 0:
                 self.project.emit("log.error", {"message": "VPCS process has stopped, return code: {}\n{}".format(returncode, self.read_vpcs_stdout())})
 
@@ -341,6 +346,14 @@ class VPCSVM(BaseNode):
         if self._process and self._process.returncode is None:
             return True
         return False
+
+    async def reset_console(self):
+        """
+        Reset console
+        """
+
+        if self.is_running():
+            await self.reset_wrap_console()
 
     @BaseNode.console_type.setter
     def console_type(self, new_console_type):

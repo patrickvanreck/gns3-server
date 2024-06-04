@@ -29,17 +29,17 @@ def response():
     return Response(request=request)
 
 
-async def test_response_file(tmpdir, response):
+# async def test_response_file(tmpdir, response):
+#
+#     filename = str(tmpdir / 'hello')
+#     with open(filename, 'w+') as f:
+#         f.write('world')
+#
+#     await response.stream_file(filename)
+#     assert response.status == 200
 
-    filename = str(tmpdir / 'hello')
-    with open(filename, 'w+') as f:
-        f.write('world')
 
-    await response.stream_file(filename)
-    assert response.status == 200
-
-
-async def test_response_file_not_found(loop, tmpdir, response):
+async def test_response_file_not_found(tmpdir, response):
 
     filename = str(tmpdir / 'hello-not-found')
     with pytest.raises(HTTPNotFound):

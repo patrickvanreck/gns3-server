@@ -1,4 +1,5 @@
 {
+    "appliance_id": "0f57eb3a-7b1c-47d4-96c4-fe8ed60c9f50",
     "name": "FortiProxy",
     "category": "firewall",
     "description": "FortiProxy is a secure web proxy that protects employees against internet-borne attacks by incorporating multiple detection techniques such as web filtering, DNS filtering, data loss prevention, antivirus, intrusion prevention and advanced threat protection. It helps enterprises enforce internet compliance using granular application control.",
@@ -7,7 +8,7 @@
     "documentation_url": "https://docs.fortinet.com/fortiproxy/",
     "product_name": "FortiProxy",
     "product_url": "https://www.fortinet.com/content/dam/fortinet/assets/data-sheets/FortiProxy.pdf",
-    "registry_version": 3,
+    "registry_version": 4,
     "status": "stable",
     "maintainer": "GNS3 Team",
     "maintainer_email": "developers@gns3.net",
@@ -26,6 +27,13 @@
         "kvm": "allow"
     },
     "images": [
+        {
+            "filename": "FPX_KVM-v700.M-build0102-FORTINET.out.kvm.qcow2",
+            "version": "7.0.6",
+            "md5sum": "ad0a4612580b5a2754cc4e0121a9cf22",
+            "filesize": 146800640,
+            "download_url": "https://support.fortinet.com/Download/FirmwareImages.aspx"
+        },
         {
             "filename": "FPX_KVM-v100-build0162-FORTINET.out.kvm.qcow2",
             "version": "1.1.2",
@@ -50,6 +58,13 @@
         }
     ],
     "versions": [
+        {
+            "name": "7.0.6",
+            "images": {
+                "hda_disk_image": "FPX_KVM-v700.M-build0102-FORTINET.out.kvm.qcow2",
+                "hdb_disk_image": "empty30G.qcow2"
+            }
+        },
         {
             "name": "1.1.2",
             "images": {

@@ -1,4 +1,5 @@
 {
+    "appliance_id": "939594b1-7d88-4351-925e-5623bdc401ff",
     "name": "vEdgeCloud",
     "category": "router",
     "description": "vEdgeCloud",
@@ -7,7 +8,7 @@
     "documentation_url": "http://www.cisco.com/",
     "product_name": "VIPtela Edge",
     "product_url": "http://www.cisco.com/",
-    "registry_version": 3,
+    "registry_version": 4,
     "status": "experimental",
     "maintainer": "Laurent LEVIER",
     "maintainer_email": "laurent.levier@orange.com",

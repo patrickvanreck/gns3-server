@@ -77,6 +77,8 @@ class BaseNode:
         self._allocate_aux = allocate_aux
         self._wrap_console = wrap_console
         self._wrapper_telnet_server = None
+        self._wrap_console_reader = None
+        self._wrap_console_writer = None
         self._internal_console_port = None
         self._custom_adapters = []
         self._ubridge_require_privileged_access = False
@@ -338,7 +340,6 @@ class BaseNode:
         if self._wrap_console:
             self._manager.port_manager.release_tcp_port(self._internal_console_port, self._project)
             self._internal_console_port = None
-
         if self._aux:
             self._manager.port_manager.release_tcp_port(self._aux, self._project)
             self._aux = None
@@ -376,17 +377,29 @@ class BaseNode:
         remaining_trial = 60
         while True:
             try:
-                (reader, writer) = await asyncio.open_connection(host="127.0.0.1", port=self._internal_console_port)
+                (self._wrap_console_reader, self._wrap_console_writer) = await asyncio.open_connection(
+                    host="127.0.0.1",
+                    port=self._internal_console_port
+                )
                 break
             except (OSError, ConnectionRefusedError) as e:
                 if remaining_trial <= 0:
                     raise e
             await asyncio.sleep(0.1)
             remaining_trial -= 1
-        await AsyncioTelnetServer.write_client_intro(writer, echo=True)
-        server = AsyncioTelnetServer(reader=reader, writer=writer, binary=True, echo=True)
+        await AsyncioTelnetServer.write_client_intro(self._wrap_console_writer, echo=True)
+        server = AsyncioTelnetServer(
+            reader=self._wrap_console_reader,
+            writer=self._wrap_console_writer,
+            binary=True,
+            echo=True
+        )
         # warning: this will raise OSError exception if there is a problem...
-        self._wrapper_telnet_server = await asyncio.start_server(server.run, self._manager.port_manager.console_host, self.console)
+        self._wrapper_telnet_server = await asyncio.start_server(
+            server.run,
+            self._manager.port_manager.console_host,
+            self.console
+        )
 
     async def stop_wrap_console(self):
         """
@@ -394,8 +407,23 @@ class BaseNode:
         """
 
         if self._wrapper_telnet_server:
+            self._wrap_console_writer.close()
+            if sys.version_info >= (3, 7, 0):
+                try:
+                    await self._wrap_console_writer.wait_closed()
+                except ConnectionResetError:
+                    pass
             self._wrapper_telnet_server.close()
             await self._wrapper_telnet_server.wait_closed()
+            self._wrapper_telnet_server = None
+
+    async def reset_wrap_console(self):
+        """
+        Reset the wrap console (restarts the Telnet proxy)
+        """
+
+        await self.stop_wrap_console()
+        await self.start_wrap_console()
 
     async def start_websocket_console(self, request):
         """
@@ -430,7 +458,7 @@ class BaseNode:
                     telnet_writer.write(msg.data.encode())
                     await telnet_writer.drain()
                 elif msg.type == aiohttp.WSMsgType.BINARY:
-                    await telnet_writer.write(msg.data)
+                    telnet_writer.write(msg.data)
                     await telnet_writer.drain()
                 elif msg.type == aiohttp.WSMsgType.ERROR:
                     log.debug("Websocket connection closed with exception {}".format(ws.exception()))
@@ -444,7 +472,18 @@ class BaseNode:
 
         try:
             # keep forwarding websocket data in both direction
-            await asyncio.wait([ws_forward(telnet_writer), telnet_forward(telnet_reader)], return_when=asyncio.FIRST_COMPLETED)
+            if sys.version_info >= (3, 11, 0):
+                # Starting with Python 3.11, passing coroutine objects to wait() directly is forbidden.
+                aws = [asyncio.create_task(ws_forward(telnet_writer)), asyncio.create_task(telnet_forward(telnet_reader))]
+            else:
+                aws = [ws_forward(telnet_writer), telnet_forward(telnet_reader)]
+
+            done, pending = await asyncio.wait(aws, return_when=asyncio.FIRST_COMPLETED)
+            for task in done:
+                if task.exception():
+                    log.warning(f"Exception while forwarding WebSocket data to Telnet server {task.exception()}")
+            for task in pending:
+                task.cancel()
         finally:
             log.info("Client has disconnected from console WebSocket")
             if not ws.closed:
@@ -570,8 +609,12 @@ class BaseNode:
                 # no need to allocate a port when the console type is none
                 self._console = None
             elif console_type == "vnc":
-                # VNC is a special case and the range must be 5900-6000
-                self._console = self._manager.port_manager.get_free_tcp_port(self._project, 5900, 6000)
+                vnc_console_start_port_range, vnc_console_end_port_range = self._get_vnc_console_port_range()
+                self._console = self._manager.port_manager.get_free_tcp_port(
+                    self._project,
+                    vnc_console_start_port_range,
+                    vnc_console_end_port_range
+                )
             else:
                 self._console = self._manager.port_manager.get_free_tcp_port(self._project)
 
@@ -613,6 +656,9 @@ class BaseNode:
         """
 
         path = self._manager.config.get_section_config("Server").get("ubridge_path", "ubridge")
+        if sys.platform.startswith("win") and hasattr(sys, "frozen"):
+            ubridge_dir = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(sys.executable)), "ubridge"))
+            os.environ["PATH"] = os.pathsep.join(ubridge_dir) + os.pathsep + os.environ.get("PATH", "")
         path = shutil.which(path)
         return path
 
@@ -770,18 +816,8 @@ class BaseNode:
             # on Linux we use RAW sockets by default excepting if host traffic must be blocked
             await self._ubridge_send('bridge add_nio_linux_raw {name} "{interface}"'.format(name=bridge_name, interface=ethernet_interface))
         elif sys.platform.startswith("win"):
-            # on Windows we use Winpcap/Npcap
-            windows_interfaces = interfaces()
-            npf_id = None
-            source_mac = None
-            for interface in windows_interfaces:
-                # Winpcap/Npcap uses a NPF ID to identify an interface on Windows
-                if "netcard" in interface and ethernet_interface in interface["netcard"]:
-                    npf_id = interface["id"]
-                    source_mac = interface["mac_address"]
-                elif ethernet_interface in interface["name"]:
-                    npf_id = interface["id"]
-                    source_mac = interface["mac_address"]
+            npf_id, source_mac = self._find_windows_interface(ethernet_interface)
+
             if npf_id:
                 await self._ubridge_send('bridge add_nio_ethernet {name} "{interface}"'.format(name=bridge_name,
                                                                                                     interface=npf_id))
@@ -804,6 +840,25 @@ class BaseNode:
             if source_mac:
                 await self._ubridge_send('bridge set_pcap_filter {name} "not ether src {mac}"'.format(name=bridge_name, mac=source_mac))
                 log.info('PCAP filter applied on "{interface}" for source MAC {mac}'.format(interface=ethernet_interface, mac=source_mac))
+
+    @staticmethod
+    def _find_windows_interface(ethernet_interface):
+        """
+        Get NPF ID and MAC address by input ethernet interface name.
+        Return None, None when not match any interface
+
+        :returns: NPF ID and MAC address
+        """
+        # on Windows we use Winpcap/Npcap
+        windows_interfaces = interfaces()
+        for interface in windows_interfaces:
+            if str.strip(ethernet_interface) == str.strip(interface["name"]):
+                return interface["id"], interface["mac_address"]
+
+        for interface in windows_interfaces:
+            if "netcard" in interface and ethernet_interface in interface["netcard"]:
+                return interface["id"], interface["mac_address"]
+        return None, None
 
     def _create_local_udp_tunnel(self):
         """
@@ -844,7 +899,7 @@ class BaseNode:
         """
 
         available_ram = int(psutil.virtual_memory().available / (1024 * 1024))
-        percentage_left = psutil.virtual_memory().percent
+        percentage_left = 100 - psutil.virtual_memory().percent
         if requested_ram > available_ram:
             message = '"{}" requires {}MB of RAM to run but there is only {}MB - {}% of RAM left on "{}"'.format(self.name,
                                                                                                                  requested_ram,

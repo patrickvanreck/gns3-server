@@ -1,9 +1,10 @@
 {
+    "appliance_id": "a51fbf46-6350-4db2-8dbc-e90704ed60ef",
     "name": "Aruba VMC",
     "category": "guest",
     "description": "Aruba Virtual Mobility Controller",
     "vendor_name": "HPE Aruba",
-    "vendor_url": "arubanetworks.com",
+    "vendor_url": "https://www.arubanetworks.com",
     "product_name": "Aruba VMC",
     "registry_version": 4,
     "status": "stable",

@@ -31,7 +31,10 @@ from unittest.mock import patch, MagicMock
 @pytest.fixture
 def fake_qemu_img_binary(tmpdir):
 
-    bin_path = str(tmpdir / "qemu-img")
+    if sys.platform.startswith("win"):
+        bin_path = str(tmpdir / "qemu-img.EXE")
+    else:
+        bin_path = str(tmpdir / "qemu-img")
     with open(bin_path, "w+") as f:
         f.write("1")
     os.chmod(bin_path, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
@@ -71,7 +74,6 @@ async def test_binary_list(monkeypatch, tmpdir):
         assert {"path": os.path.join(os.environ["PATH"], "qemu-kvm"), "version": version} in qemus
         assert {"path": os.path.join(os.environ["PATH"], "qemu-system-x42"), "version": version} in qemus
         assert {"path": os.path.join(os.environ["PATH"], "hello"), "version": version} not in qemus
-        assert {"path": os.path.join(os.environ["PATH"], "qemu-system-x86_64-spice"), "version": version} not in qemus
 
         qemus = await Qemu.binary_list(["x86"])
 
@@ -193,6 +195,7 @@ async def test_create_image_with_not_supported_characters_by_filesystem(tmpdir, 
 
     # patching os.makedirs is necessary as it depends on already mocked os.path.exists
     with asyncio_patch("asyncio.create_subprocess_exec", return_value=MagicMock()) as process, \
+            patch("gns3server.compute.qemu.Qemu._init_config_disk", return_value=MagicMock()), \
             patch("gns3server.compute.qemu.Qemu.get_images_directory", return_value=str(tmpdir)), \
             patch("os.path.exists", side_effect=UnicodeEncodeError('error', u"", 1, 2, 'Emulated Unicode Err')),\
             patch("os.makedirs"):

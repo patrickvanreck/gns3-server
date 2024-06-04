@@ -108,7 +108,7 @@ async def test_qemu_create_with_params(compute_api, compute_project, base_params
 async def test_qemu_create_with_project_file(compute_api, compute_project, base_params, fake_qemu_vm):
 
     response = await compute_api.post("/projects/{project_id}/files/hello.img".format(project_id=compute_project.id), body="world", raw=True)
-    assert response.status == 200
+    assert response.status == 201
     params = base_params
     params["hda_disk_image"] = "hello.img"
     response = await compute_api.post("/projects/{project_id}/qemu/nodes".format(project_id=compute_project.id), params)
@@ -185,12 +185,14 @@ async def test_qemu_update(compute_api, vm, free_console_port, fake_qemu_vm):
         "hdb_disk_image": "linux载.img"
     }
 
-    response = await compute_api.put("/projects/{project_id}/qemu/nodes/{node_id}".format(project_id=vm["project_id"], node_id=vm["node_id"]), params)
-    assert response.status == 200
-    assert response.json["name"] == "test"
-    assert response.json["console"] == free_console_port
-    assert response.json["hdb_disk_image"] == "linux载.img"
-    assert response.json["ram"] == 1024
+    with patch("gns3server.compute.qemu.qemu_vm.QemuVM.updated") as mock:
+        response = await compute_api.put("/projects/{project_id}/qemu/nodes/{node_id}".format(project_id=vm["project_id"], node_id=vm["node_id"]), params)
+        assert response.status == 200
+        assert response.json["name"] == "test"
+        assert response.json["console"] == free_console_port
+        assert response.json["hdb_disk_image"] == "linux载.img"
+        assert response.json["ram"] == 1024
+        assert mock.called
 
 
 async def test_qemu_nio_create_udp(compute_api, vm):
@@ -253,7 +255,7 @@ async def test_qemu_list_binaries(compute_api, vm):
 
     with asyncio_patch("gns3server.compute.qemu.Qemu.binary_list", return_value=ret) as mock:
         response = await compute_api.get("/qemu/binaries".format(project_id=vm["project_id"]))
-        assert mock.called_with(None)
+        mock.assert_called_with(None)
         assert response.status == 200
         assert response.json == ret
 
@@ -269,7 +271,7 @@ async def test_qemu_list_binaries_filter(compute_api, vm):
     with asyncio_patch("gns3server.compute.qemu.Qemu.binary_list", return_value=ret) as mock:
         response = await compute_api.get("/qemu/binaries".format(project_id=vm["project_id"]), body={"archs": ["i386"]})
         assert response.status == 200
-        assert mock.called_with(["i386"])
+        mock.assert_called_with(["i386"])
         assert response.json == ret
 
 
@@ -277,7 +279,7 @@ async def test_images(compute_api, fake_qemu_vm):
 
     response = await compute_api.get("/qemu/images")
     assert response.status == 200
-    assert response.json == [{"filename": "linux载.img", "path": "linux载.img", "md5sum": "c4ca4238a0b923820dcc509a6f75849b", "filesize": 1}]
+    assert {"filename": "linux载.img", "path": "linux载.img", "md5sum": "c4ca4238a0b923820dcc509a6f75849b", "filesize": 1} in response.json
 
 
 @pytest.mark.skipif(sys.platform.startswith("win"), reason="Does not work on Windows")

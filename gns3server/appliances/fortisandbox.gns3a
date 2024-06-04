@@ -1,13 +1,15 @@
 {
+    "appliance_id": "88252124-93a4-4851-9b0f-b0f264705c1a",
     "name": "FortiSandbox",
     "category": "firewall",
     "description": "Today's threats are increasingly sophisticated and often bypass traditional malware security by masking their malicious activity. A sandbox augments your security architecture by validating threats in a separate, secure environment. FortiSandbox offers a powerful combination of advanced detection, automated mitigation, actionable insight, and flexible deployment to stop targeted attacks and subsequent data loss. It's also a key component of our Advanced Threat Protection solution.",
     "vendor_name": "Fortinet",
     "vendor_url": "http://www.fortinet.com/",
+    "vendor_logo_url": "https://raw.githubusercontent.com/GNS3/gns3-registry/master/vendor-logos/FortiSandbox.jpg",
     "documentation_url": "http://docs.fortinet.com/fortisandbox/admin-guides",
     "product_name": "FortiSandbox",
     "product_url": "https://www.fortinet.com/products/sandbox/fortisandbox.html",
-    "registry_version": 3,
+    "registry_version": 4,
     "status": "stable",
     "maintainer": "GNS3 Team",
     "maintainer_email": "developers@gns3.net",
@@ -27,6 +29,13 @@
         "options": "-smp 2"
     },
     "images": [
+        {
+            "filename": "FSA_KVM-v400-build0231-FORTINET.out.kvm.qcow2",
+            "version": "4.2.2",
+            "md5sum": "02b7f49e3c04861601a7af26452eed66",
+            "filesize": 156172304,
+            "download_url": "https://support.fortinet.com/Download/FirmwareImages.aspx"
+        },
         {
             "filename": "FSA_KVM-v300-build0124-FORTINET.out.kvm.qcow2",
             "version": "3.1.2",
@@ -113,6 +122,13 @@
         }
     ],
     "versions": [
+        {
+            "name": "4.2.2",
+            "images": {
+                "hda_disk_image": "FSA_KVM-v400-build0231-FORTINET.out.kvm.qcow2",
+                "hdb_disk_image": "FSA-datadrive.qcow2"
+            }
+        },
         {
             "name": "3.1.2",
             "images": {

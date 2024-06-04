@@ -1,4 +1,5 @@
 {
+    "appliance_id": "88903903-8e64-4439-bc4f-a0ed45e29e56",
     "name": "OpenBSD",
     "category": "guest",
     "description": "The OpenBSD project produces a FREE, multi-platform 4.4BSD-based UNIX-like operating system. Our efforts emphasize portability, standardization, correctness, proactive security and integrated cryptography. As an example of the effect OpenBSD has, the popular OpenSSH software comes from OpenBSD.",
@@ -6,12 +7,12 @@
     "vendor_url": "http://www.openbsd.org",
     "documentation_url": "http://www.openbsd.org/faq/index.html",
     "product_name": "OpenBSD",
-    "registry_version": 3,
+    "registry_version": 4,
     "status": "stable",
     "maintainer": "GNS3 Team",
     "maintainer_email": "developers@gns3.net",
     "usage": "User root, password gns3",
-    "first_port_name": "fxp0",
+    "first_port_name": "em0",
     "port_name_format": "em{0}",
     "qemu": {
         "adapter_type": "e1000",

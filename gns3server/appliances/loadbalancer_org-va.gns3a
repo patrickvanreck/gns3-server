@@ -1,4 +1,5 @@
 {
+    "appliance_id": "1f197327-9beb-48da-a3fc-f5fb721dc335",
     "name": "Loadbalancer.org Enterprise VA",
     "category": "router",
     "description": "Don't you hate it when companies artificially cripple performance? We just give you two simple choices - Now isn't that a refreshing change?",
@@ -7,7 +8,7 @@
     "documentation_url": "https://loadbalancer.org/support/support-resources",
     "product_name": "Loadbalancer.org Enterprise VA",
     "product_url": "https://loadbalancer.org/products/virtual",
-    "registry_version": 3,
+    "registry_version": 4,
     "status": "stable",
     "maintainer": "GNS3 Team",
     "maintainer_email": "developers@gns3.net",

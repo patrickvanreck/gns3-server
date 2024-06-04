@@ -66,12 +66,12 @@ def test_invalid_empty_file(tmpdir):
 
 
 @pytest.mark.skipif(qemu_img() is None, reason="qemu-img is not available")
-async def test_rebase(loop, tmpdir):
+async def test_rebase(tmpdir):
 
     shutil.copy("tests/resources/empty8G.qcow2", str(tmpdir / "empty16G.qcow2"))
     shutil.copy("tests/resources/linked.qcow2", str(tmpdir / "linked.qcow2"))
     qcow2 = Qcow2(str(tmpdir / "linked.qcow2"))
     assert qcow2.version == 3
     assert qcow2.backing_file == "empty8G.qcow2"
-    await qcow2.rebase(qemu_img(), str(tmpdir / "empty16G.qcow2"))
+    await qcow2.rebase(qemu_img(), str(tmpdir / "empty16G.qcow2"), "qcow2")
     assert qcow2.backing_file == str(tmpdir / "empty16G.qcow2")

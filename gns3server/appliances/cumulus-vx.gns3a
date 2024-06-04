@@ -1,29 +1,63 @@
 {
+    "appliance_id": "f1b83421-6c20-4fa7-8292-568fe08874c4",
     "name": "Cumulus VX",
     "category": "multilayer_switch",
     "description": "Cumulus VX is a community-supported virtual appliance that enables cloud admins and network engineers to preview and test Cumulus Networks technology at zero cost. You can build sandbox environments to learn Open Networking concepts, prototype network operations and script & develop applications risk-free. With Cumulus VX, you can get started with Open Networking at your pace, on your time, and in your environment!",
     "vendor_name": "Cumulus Network",
     "vendor_url": "https://www.cumulusnetworks.com",
+    "vendor_logo_url": "https://raw.githubusercontent.com/GNS3/gns3-registry/master/vendor-logos/Cumulus VX.jpg",
     "documentation_url": "http://docs.cumulusnetworks.com/",
     "product_name": "Cumulus VX",
     "product_url": "https://cumulusnetworks.com/cumulus-vx/",
-    "registry_version": 3,
+    "registry_version": 4,
     "status": "stable",
     "maintainer": "GNS3 Team",
     "maintainer_email": "developers@gns3.net",
-    "usage": "Default username is cumulus and password is CumulusLinux!",
+    "usage": "Default username/password is cumulus/CumulusLinux! in version 4.1 and earlier, and cumulus/cumulus in version 4.2 and later.",
     "first_port_name": "eth0",
     "port_name_format": "swp{port1}",
     "qemu": {
         "adapter_type": "virtio-net-pci",
         "adapters": 7,
-        "ram": 512,
-        "hda_disk_interface": "ide",
+        "ram": 1024,
+        "hda_disk_interface": "virtio",
         "arch": "x86_64",
         "console_type": "telnet",
         "kvm": "require"
     },
     "images": [
+        {
+            "filename": "cumulus-linux-5.4.0-vx-amd64-qemu.qcow2",
+            "version": "5.4.0",
+            "md5sum": "b36d781a168e381e0db5b1d85a2f970d",
+            "filesize": 6254493696,
+            "download_url": "https://www.nvidia.com/en-us/networking/ethernet-switching/cumulus-vx/download/",
+            "direct_download_url": "https://d2cd9e7ca6hntp.cloudfront.net/public/CumulusLinux-5.4.0/cumulus-linux-5.4.0-vx-amd64-qemu.qcow2"
+        },
+        {
+            "filename": "cumulus-linux-5.3.1-vx-amd64-qemu.qcow2",
+            "version": "5.3.1",
+            "md5sum": "366b4e5afbfb638244fac4dd6cd092fd",
+            "filesize": 2147479552,
+            "download_url": "https://www.nvidia.com/en-us/networking/ethernet-switching/cumulus-vx/download/",
+            "direct_download_url": "https://d2cd9e7ca6hntp.cloudfront.net/public/CumulusLinux-5.3.1/cumulus-linux-5.3.1-vx-amd64-qemu.qcow2"
+        },
+        {
+            "filename": "cumulus-linux-5.1.0-vx-amd64-qemu.qcow2",
+            "version": "5.1.0",
+            "md5sum": "b46a68bbb57e77fab5c2927367bead13",
+            "filesize": 4174446592,
+            "download_url": "https://www.nvidia.com/en-us/networking/ethernet-switching/cumulus-vx/download/",
+            "direct_download_url": "https://d2cd9e7ca6hntp.cloudfront.net/public/CumulusLinux-5.1.0/cumulus-linux-5.1.0-vx-amd64-qemu.qcow2"
+        },
+        {
+            "filename": "cumulus-linux-4.3.0-vx-amd64-qemu.qcow2",
+            "version": "4.3.0",
+            "md5sum": "aba2f0bb462b26a208afb6202bc97d51",
+            "filesize": 2819325952,
+            "download_url": "https://cumulusnetworks.com/cumulus-vx/download/",
+            "direct_download_url": "https://d2cd9e7ca6hntp.cloudfront.net/public/CumulusLinux-4.3.0/cumulus-linux-4.3.0-vx-amd64-qemu.qcow2"
+        },
         {
             "filename": "cumulus-linux-4.2.0-vx-amd64-qemu.qcow2",
             "version": "4.2.0",
@@ -222,6 +256,30 @@
         }
     ],
     "versions": [
+        {
+            "name": "5.4.0",
+            "images": {
+                "hda_disk_image": "cumulus-linux-5.4.0-vx-amd64-qemu.qcow2"
+            }
+        },
+        {
+            "name": "5.3.1",
+            "images": {
+                "hda_disk_image": "cumulus-linux-5.3.1-vx-amd64-qemu.qcow2"
+            }
+        },
+        {
+            "name": "5.1.0",
+            "images": {
+                "hda_disk_image": "cumulus-linux-5.1.0-vx-amd64-qemu.qcow2"
+            }
+        },
+        {
+            "name": "4.3.0",
+            "images": {
+                "hda_disk_image": "cumulus-linux-4.3.0-vx-amd64-qemu.qcow2"
+            }
+        },
         {
             "name": "4.2.0",
             "images": {

@@ -23,7 +23,15 @@ import socket
 import shutil
 import aiohttp
 
+try:
+    import importlib_resources
+except ImportError:
+    from importlib import resources as importlib_resources
+
 from ..config import Config
+from ..utils import parse_version
+from ..utils.images import default_images_directory
+
 from .project import Project
 from .template import Template
 from .appliance import Appliance
@@ -35,7 +43,6 @@ from .symbols import Symbols
 from ..version import __version__
 from .topology import load_topology
 from .gns3vm import GNS3VM
-from ..utils.get_resource import get_resource
 from .gns3vm.gns3_vm_error import GNS3VMError
 
 import logging
@@ -53,6 +60,7 @@ class Controller:
         self._notification = Notification(self)
         self.gns3vm = GNS3VM(self)
         self.symbols = Symbols()
+        self._ssl_context = None
         self._appliance_manager = ApplianceManager()
         self._template_manager = TemplateManager()
         self._iou_license_settings = {"iourc_content": "",
@@ -64,7 +72,8 @@ class Controller:
     async def start(self):
 
         log.info("Controller is starting")
-        self.load_base_files()
+        self._install_base_configs()
+        self._install_builtin_disks()
         server_config = Config.instance().get_section_config("Server")
         Config.instance().listen_for_config_changes(self._update_config)
         host = server_config.get("host", "localhost")
@@ -82,9 +91,9 @@ class Controller:
 
         computes = self._load_controller_settings()
         from gns3server.web.web_server import WebServer
-        ssl_context = WebServer.instance(host=host, port=port).ssl_context()
+        self._ssl_context = WebServer.instance(host=host, port=port).ssl_context()
         protocol = server_config.get("protocol", "http")
-        if ssl_context and protocol != "https":
+        if self._ssl_context and protocol != "https":
             log.warning("Protocol changed to 'https' for local compute because SSL is enabled".format(port))
             protocol = "https"
         try:
@@ -97,7 +106,7 @@ class Controller:
                                                         user=server_config.get("user", ""),
                                                         password=server_config.get("password", ""),
                                                         force=True,
-                                                        ssl_context=ssl_context)
+                                                        ssl_context=self._ssl_context)
         except aiohttp.web.HTTPConflict:
             log.fatal("Cannot access to the local server, make sure something else is not running on the TCP port {}".format(port))
             sys.exit(1)
@@ -114,6 +123,13 @@ class Controller:
 
         await self.load_projects()
         await self._project_auto_open()
+
+    def ssl_context(self):
+        """
+        Returns the SSL context for the server.
+        """
+
+        return self._ssl_context
 
     def _update_config(self):
         """
@@ -148,12 +164,13 @@ class Controller:
 
         # remove all projects deleted from disk.
         for project in self._projects.copy().values():
-            if not os.path.exists(project.path):
+            if not os.path.exists(project.path) or not os.listdir(project.path):
                 log.info(f"Project '{project.name}' doesn't exist on the disk anymore, closing...")
                 await project.close()
                 self.remove_project(project)
 
         await self.load_projects()
+        await self._project_auto_open()
 
     def check_can_write_config(self):
         """
@@ -174,29 +191,28 @@ class Controller:
         Save the controller configuration on disk
         """
 
-        if self._config_loaded is False:
-            return
+        controller_settings = dict()
+        if self._config_loaded:
+            controller_settings = {"computes": [],
+                                   "templates": [],
+                                   "gns3vm": self.gns3vm.__json__(),
+                                   "iou_license": self._iou_license_settings,
+                                   "appliances_etag": self._appliance_manager.appliances_etag,
+                                   "version": __version__}
 
-        controller_settings = {"computes": [],
-                               "templates": [],
-                               "gns3vm": self.gns3vm.__json__(),
-                               "iou_license": self._iou_license_settings,
-                               "appliances_etag": self._appliance_manager.appliances_etag,
-                               "version": __version__}
+            for template in self._template_manager.templates.values():
+                if not template.builtin:
+                    controller_settings["templates"].append(template.__json__())
 
-        for template in self._template_manager.templates.values():
-            if not template.builtin:
-                controller_settings["templates"].append(template.__json__())
-
-        for compute in self._computes.values():
-            if compute.id != "local" and compute.id != "vm":
-                controller_settings["computes"].append({"host": compute.host,
-                                                        "name": compute.name,
-                                                        "port": compute.port,
-                                                        "protocol": compute.protocol,
-                                                        "user": compute.user,
-                                                        "password": compute.password,
-                                                        "compute_id": compute.id})
+            for compute in self._computes.values():
+                if compute.id != "local" and compute.id != "vm":
+                    controller_settings["computes"].append({"host": compute.host,
+                                                            "name": compute.name,
+                                                            "port": compute.port,
+                                                            "protocol": compute.protocol,
+                                                            "user": compute.user,
+                                                            "password": compute.password,
+                                                            "compute_id": compute.id})
 
         try:
             os.makedirs(os.path.dirname(self._config_file), exist_ok=True)
@@ -212,8 +228,7 @@ class Controller:
 
         try:
             if not os.path.exists(self._config_file):
-                self._config_loaded = True
-                self.save()
+                self.save()  # this will create the config file
             with open(self._config_file) as f:
                 controller_settings = json.load(f)
         except (OSError, ValueError) as e:
@@ -232,6 +247,14 @@ class Controller:
         # load the IOU license settings
         if "iou_license" in controller_settings:
             self._iou_license_settings = controller_settings["iou_license"]
+
+        previous_version = controller_settings.get("version")
+        log.info("Comparing controller version {} with config version {}".format(__version__, previous_version))
+        if not previous_version or \
+                parse_version(__version__.split("+")[0]) > parse_version(previous_version.split("+")[0]):
+            self._appliance_manager.install_builtin_appliances()
+        elif not os.listdir(self._appliance_manager.builtin_appliances_path()):
+            self._appliance_manager.install_builtin_appliances()
 
         self._appliance_manager.appliances_etag = controller_settings.get("appliances_etag")
         self._appliance_manager.load_appliances()
@@ -260,20 +283,52 @@ class Controller:
         except OSError as e:
             log.error(str(e))
 
-    def load_base_files(self):
+    @staticmethod
+    def install_resource_files(dst_path, resource_name):
         """
-        At startup we copy base file to the user location to allow
+        Install files from resources to user's file system
+        """
+
+        if hasattr(sys, "frozen") and sys.platform.startswith("win"):
+            resource_path = os.path.normpath(os.path.join(os.path.dirname(sys.executable), resource_name))
+            for filename in os.listdir(resource_path):
+                if not os.path.exists(os.path.join(dst_path, filename)):
+                    shutil.copy(os.path.join(resource_path, filename), os.path.join(dst_path, filename))
+        else:
+            for entry in importlib_resources.files('gns3server').joinpath(resource_name).iterdir():
+                full_path = os.path.join(dst_path, entry.name)
+                if entry.is_file() and not os.path.exists(full_path):
+                    log.debug(f'Installing {resource_name} resource file "{entry.name}" to "{full_path}"')
+                    shutil.copy(str(entry), os.path.join(dst_path, entry.name))
+                elif entry.is_dir():
+                    os.makedirs(full_path, exist_ok=True)
+                    Controller.install_resource_files(full_path, os.path.join(resource_name, entry.name))
+
+    def _install_base_configs(self):
+        """
+        At startup we copy base configs to the user location to allow
         them to customize it
         """
 
         dst_path = self.configs_path()
-        src_path = get_resource('configs')
+        log.info(f"Installing base configs in '{dst_path}'")
         try:
-            for file in os.listdir(src_path):
-                if not os.path.exists(os.path.join(dst_path, file)):
-                    shutil.copy(os.path.join(src_path, file), os.path.join(dst_path, file))
-        except OSError:
-            pass
+            Controller.install_resource_files(dst_path, "configs")
+        except OSError as e:
+            log.error(f"Could not install base config files to {dst_path}: {e}")
+
+    def _install_builtin_disks(self):
+        """
+        At startup we copy built-in Qemu disks to the user location to allow
+        them to use with appliances
+        """
+
+        dst_path = self.disks_path()
+        log.info(f"Installing built-in disks in '{dst_path}'")
+        try:
+            Controller.install_resource_files(dst_path, "disks")
+        except OSError as e:
+            log.error(f"Could not install disk files to {dst_path}: {e}")
 
     def images_path(self):
         """
@@ -294,6 +349,15 @@ class Controller:
         configs_path = os.path.expanduser(server_config.get("configs_path", "~/GNS3/configs"))
         os.makedirs(configs_path, exist_ok=True)
         return configs_path
+
+    def disks_path(self, emulator_type="qemu"):
+        """
+        Get the disks storage directory
+        """
+
+        disks_path = default_images_directory(emulator_type)
+        os.makedirs(disks_path, exist_ok=True)
+        return disks_path
 
     async def add_compute(self, compute_id=None, name=None, force=False, connect=True, **kwargs):
         """

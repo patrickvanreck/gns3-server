@@ -1,4 +1,5 @@
 {
+    "appliance_id": "a210781e-471a-4628-8f43-83941c3909a6",
     "name": "ZeroShell",
     "category": "router",
     "description": "Zeroshell is a Linux distribution for servers and embedded devices aimed at providing the main network services a LAN requires. It is available in the form of Live CD or Compact Flash image and you can configure and administer it using your web browser.",
@@ -6,7 +7,7 @@
     "vendor_url": "http://www.zeroshell.org",
     "documentation_url": "http://www.zeroshell.org/documentation/",
     "product_name": "ZeroShell",
-    "registry_version": 3,
+    "registry_version": 4,
     "status": "stable",
     "maintainer": "GNS3 Team",
     "maintainer_email": "developers@gns3.net",

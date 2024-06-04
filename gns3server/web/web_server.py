@@ -38,7 +38,7 @@ from .route import Route
 from ..config import Config
 from ..compute import MODULES
 from ..compute.port_manager import PortManager
-from ..compute.qemu import Qemu
+from ..utils.images import list_images
 from ..controller import Controller
 
 # do not delete this import
@@ -83,9 +83,11 @@ class WebServer:
     def _run_application(self, handler, ssl_context=None):
         try:
             srv = self._loop.create_server(handler, self._host, self._port, ssl=ssl_context)
-            self._server, startup_res = self._loop.run_until_complete(asyncio.gather(srv, self._app.startup(), loop=self._loop))
+            self._server, startup_res = self._loop.run_until_complete(asyncio.gather(srv, self._app.startup()))
         except (RuntimeError, OSError, asyncio.CancelledError) as e:
             log.critical("Could not start the server: {}".format(e))
+            return False
+        except KeyboardInterrupt:
             return False
         return True
 
@@ -116,7 +118,7 @@ class WebServer:
 
         if self._server:
             self._server.close()
-            await self._server.wait_closed()
+            # await self._server.wait_closed()
         if self._app:
             await self._app.shutdown()
         if self._handler:
@@ -230,16 +232,34 @@ class WebServer:
 
         atexit.register(close_asyncio_loop)
 
+    async def _compute_image_checksums(self):
+        """
+        Compute image checksums.
+        """
+
+        if sys.platform.startswith("darwin") and hasattr(sys, "frozen"):
+            # do not compute on macOS because errors
+            return
+        loop = asyncio.get_event_loop()
+        import concurrent.futures
+        with concurrent.futures.ProcessPoolExecutor(max_workers=1) as pool:
+            try:
+                log.info("Computing image checksums...")
+                await loop.run_in_executor(pool, list_images, "qemu")
+                log.info("Finished computing image checksums")
+            except OSError as e:
+                log.warning("Could not compute image checksums: {}".format(e))
+
     async def _on_startup(self, *args):
         """
         Called when the HTTP server start
         """
 
         await Controller.instance().start()
-        # Because with a large image collection
-        # without md5sum already computed we start the
-        # computing with server start
-        asyncio.ensure_future(Qemu.instance().list_images())
+
+        # Start computing checksums now because it can take a long time
+        # for a large image collection
+        await self._compute_image_checksums()
 
     def run(self):
         """
@@ -291,13 +311,13 @@ class WebServer:
         # Background task started with the server
         self._app.on_startup.append(self._on_startup)
 
-        resource_options = aiohttp_cors.ResourceOptions(expose_headers="*", allow_headers="*", max_age=0)
+        resource_options = aiohttp_cors.ResourceOptions(allow_credentials=True, expose_headers="*", allow_headers="*", max_age=0)
 
         # Allow CORS for this domains
         cors = aiohttp_cors.setup(self._app, defaults={
             # Default web server for web gui dev
-            "http://127.0.0.1:8080": resource_options,
-            "http://localhost:8080": resource_options,
+            "http://127.0.0.1:3080": resource_options,
+            "http://localhost:3080": resource_options,
             "http://127.0.0.1:4200": resource_options,
             "http://localhost:4200": resource_options,
             "http://gns3.github.io": resource_options,
@@ -330,6 +350,8 @@ class WebServer:
 
         try:
             self._loop.run_forever()
+        except ConnectionResetError:
+            log.warning("Connection reset by peer")
         except TypeError as e:
             # This is to ignore an asyncio.windows_events exception
             # on Windows when the process gets the SIGBREAK signal

@@ -1,9 +1,11 @@
 {
+    "appliance_id": "2b98950c-4b0c-450c-acf8-caf923ac2b28",
     "name": "Windows Server",
     "category": "guest",
     "description": "Microsoft Windows, or simply Windows, is a metafamily of graphical operating systems developed, marketed, and sold by Microsoft. It consists of several families of operating systems, each of which cater to a certain sector of the computing industry with the OS typically associated with IBM PC compatible architecture.",
     "vendor_name": "Microsoft",
     "vendor_url": "http://www.microsoft.com/",
+    "vendor_logo_url": "https://raw.githubusercontent.com/GNS3/gns3-registry/master/vendor-logos/Windows Server.jpg",
     "documentation_url": "https://technet.microsoft.com/en-us/library/cc498727.aspx",
     "product_name": "Windows Server",
     "product_url": "https://www.microsoft.com/en-us/windows",
@@ -26,6 +28,13 @@
         "options": "-usbdevice tablet"
     },
     "images": [
+        {
+            "filename": "SERVER_EVAL_x64FRE_en-us.iso",
+            "version": "2022",
+            "md5sum": "e7908933449613edc97e1b11180429d1",
+            "filesize": 5044094976,
+            "download_url": "https://www.microsoft.com/en-gb/evalcenter/evaluate-windows-server-2022"
+        },
         {
             "filename": "Win2k16_14393.0.161119-1705.RS1_REFRESH_SERVER_EVAL_X64FRE_EN-US.ISO",
             "version": "2016",
@@ -50,6 +59,13 @@
         }
     ],
     "versions": [
+         {
+            "name": "2022",
+            "images": {
+                "hda_disk_image": "empty100G.qcow2",
+                "cdrom_image": "SERVER_EVAL_x64FRE_en-us.iso"
+            }
+        },
         {
             "name": "2016",
             "images": {

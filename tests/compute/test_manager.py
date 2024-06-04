@@ -18,7 +18,7 @@
 import uuid
 import os
 import pytest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 from tests.utils import asyncio_patch
 
 from gns3server.compute.vpcs import VPCS
@@ -29,7 +29,7 @@ from gns3server.utils import force_unix_path
 
 
 @pytest.fixture(scope="function")
-async def vpcs(loop, port_manager):
+async def vpcs(port_manager):
 
     VPCS._instance = None
     vpcs = VPCS.instance()
@@ -38,9 +38,10 @@ async def vpcs(loop, port_manager):
 
 
 @pytest.fixture(scope="function")
-async def qemu(loop, port_manager):
+async def qemu(port_manager):
 
     Qemu._instance = None
+    Qemu._init_config_disk = MagicMock()  # do not create the config.img image
     qemu = Qemu.instance()
     qemu.port_manager = port_manager
     return qemu
@@ -189,7 +190,7 @@ def test_get_abs_image_recursive_ova(qemu, tmpdir, config):
     config.set_section_config("Server", {
         "images_path": str(tmpdir / "images1"),
         "local": False})
-    assert qemu.get_abs_image_path("test.ova/test1.bin") == path1
+    assert qemu.get_abs_image_path("demo/test.ova/test1.bin") == path1
     assert qemu.get_abs_image_path("test.ova/test2.bin") == path2
     # Absolute path
     assert qemu.get_abs_image_path(str(path1)) == path1

@@ -15,11 +15,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import re
 import sys
 import aiohttp
 import logging
 import asyncio
 import socket
+import ipaddress
 
 from .base_gns3_vm import BaseGNS3VM
 from .gns3_vm_error import GNS3VMError
@@ -89,16 +91,16 @@ class VirtualBoxGNS3VM(BaseGNS3VM):
         if not self._system_properties:
             await self._get_system_properties()
         if "API version" not in self._system_properties:
-            raise VirtualBoxError("Can't access to VirtualBox API version:\n{}".format(self._system_properties))
+            raise GNS3VMError("Can't access to VirtualBox API version:\n{}".format(self._system_properties))
         from cpuinfo import get_cpu_info
         cpu_info = await wait_run_in_executor(get_cpu_info)
         vendor_id = cpu_info.get('vendor_id_raw')
         if vendor_id == "GenuineIntel":
             if parse_version(self._system_properties["API version"]) < parse_version("6_1"):
-                raise VirtualBoxError("VirtualBox version 6.1 or above is required to run the GNS3 VM with nested virtualization enabled on Intel processors")
+                raise GNS3VMError("VirtualBox version 6.1 or above is required to run the GNS3 VM with nested virtualization enabled on Intel processors")
         elif vendor_id == "AuthenticAMD":
             if parse_version(self._system_properties["API version"]) < parse_version("6_0"):
-                raise VirtualBoxError("VirtualBox version 6.0 or above is required to run the GNS3 VM with nested virtualization enabled on AMD processors")
+                raise GNS3VMError("VirtualBox version 6.0 or above is required to run the GNS3 VM with nested virtualization enabled on AMD processors")
         else:
             log.warning("Could not determine CPU vendor: {}".format(vendor_id))
 
@@ -122,9 +124,9 @@ class VirtualBoxGNS3VM(BaseGNS3VM):
                         continue
         return interface
 
-    async def _look_for_vboxnet(self, interface_number):
+    async def _look_for_vboxnet(self, backend_type, interface_number):
         """
-        Look for the VirtualBox network name associated with a host only interface.
+        Look for the VirtualBox network name associated with an interface.
 
         :returns: None or vboxnet name
         """
@@ -133,7 +135,7 @@ class VirtualBoxGNS3VM(BaseGNS3VM):
         for info in result.splitlines():
             if '=' in info:
                 name, value = info.split('=', 1)
-                if name == "hostonlyadapter{}".format(interface_number):
+                if name == "{}{}".format(backend_type, interface_number):
                     return value.strip('"')
         return None
 
@@ -159,7 +161,45 @@ class VirtualBoxGNS3VM(BaseGNS3VM):
                     return True
         return False
 
-    async def _check_vboxnet_exists(self, vboxnet):
+    async def _add_dhcp_server(self, vboxnet):
+        """
+        Add a DHCP server for vboxnet.
+
+        :param vboxnet: vboxnet name
+        """
+
+        hostonlyifs = await self._execute("list", ["hostonlyifs"])
+        pattern = r"IPAddress:\s+(\d+\.\d+\.\d+\.\d+)\nNetworkMask:\s+(\d+\.\d+\.\d+\.\d+)"
+        match = re.search(pattern, hostonlyifs)
+
+        if match:
+            ip_address = match.group(1)
+            netmask = match.group(2)
+        else:
+            raise GNS3VMError("Could not find IP address and netmask for vboxnet {}".format(vboxnet))
+
+        try:
+            interface = ipaddress.IPv4Interface(f"{ip_address}/{netmask}")
+            subnet = ipaddress.IPv4Network(str(interface.network))
+            dhcp_server_ip = str(interface.ip + 1)
+            netmask = str(subnet.netmask)
+            lower_ip = str(interface.ip + 2)
+            upper_ip = str(subnet.network_address + subnet.num_addresses - 2)
+        except ValueError:
+            raise GNS3VMError("Invalid IP address and netmask for vboxnet {}: {}/{}".format(vboxnet, ip_address, netmask))
+
+        dhcp_server_args = [
+            "add",
+            "--network=HostInterfaceNetworking-{}".format(vboxnet),
+            "--server-ip={}".format(dhcp_server_ip),
+            "--netmask={}".format(netmask),
+            "--lower-ip={}".format(lower_ip),
+            "--upper-ip={}".format(upper_ip),
+            "--enable"
+        ]
+        await self._execute("dhcpserver", dhcp_server_args)
+
+    async def _check_vboxnet_exists(self, vboxnet, vboxnet_type):
         """
         Check if the vboxnet interface exists
 
@@ -167,7 +207,7 @@ class VirtualBoxGNS3VM(BaseGNS3VM):
         :returns: boolean
         """
 
-        properties = await self._execute("list", ["hostonlyifs"])
+        properties = await self._execute("list", ["{}".format(vboxnet_type)])
         for prop in properties.splitlines():
             try:
                 name, value = prop.split(':', 1)
@@ -230,30 +270,51 @@ class VirtualBoxGNS3VM(BaseGNS3VM):
         if nat_interface_number < 0:
             raise GNS3VMError('VM "{}" must have a NAT interface configured in order to start'.format(self.vmname))
 
-        hostonly_interface_number = await self._look_for_interface("hostonly")
-        if hostonly_interface_number < 0:
-            raise GNS3VMError('VM "{}" must have a host-only interface configured in order to start'.format(self.vmname))
+        if sys.platform.startswith("darwin") and parse_version(self._system_properties["API version"]) >= parse_version("7_0"):
+            # VirtualBox 7.0+ on macOS requires a host-only network interface
+            backend_type = "hostonly-network"
+            backend_description = "host-only network"
+            vboxnet_type = "hostonlynets"
+            interface_number = await self._look_for_interface("hostonlynetwork")
+            if interface_number < 0:
+                raise GNS3VMError('VM "{}" must have a network adapter attached to a host-only network in order to start'.format(self.vmname))
+        else:
+            backend_type = "hostonlyadapter"
+            backend_description = "host-only adapter"
+            vboxnet_type = "hostonlyifs"
+            interface_number = await self._look_for_interface("hostonly")
 
-        vboxnet = await self._look_for_vboxnet(hostonly_interface_number)
+        if interface_number < 0:
+            raise GNS3VMError('VM "{}" must have a network adapter attached to a {} in order to start'.format(self.vmname, backend_description))
+
+        vboxnet = await self._look_for_vboxnet(backend_type, interface_number)
         if vboxnet is None:
-            raise GNS3VMError('A VirtualBox host-only network could not be found on network adapter {} for "{}"'.format(hostonly_interface_number, self._vmname))
+            raise GNS3VMError('A VirtualBox host-only network could not be found on network adapter {} for "{}"'.format(interface_number, self._vmname))
 
-        if not (await self._check_vboxnet_exists(vboxnet)):
+        if not (await self._check_vboxnet_exists(vboxnet, vboxnet_type)):
             if sys.platform.startswith("win") and vboxnet == "vboxnet0":
                 # The GNS3 VM is configured with vboxnet0 by default which is not available
                 # on Windows. Try to patch this with the first available vboxnet we find.
                 first_available_vboxnet = await self._find_first_available_vboxnet()
                 if first_available_vboxnet is None:
-                    raise GNS3VMError('Please add a VirtualBox host-only network with DHCP enabled and attached it to network adapter {} for "{}"'.format(hostonly_interface_number, self._vmname))
-                await self.set_hostonly_network(hostonly_interface_number, first_available_vboxnet)
+                    raise GNS3VMError('Please add a VirtualBox host-only network with DHCP enabled and attached it to network adapter {} for "{}"'.format(interface_number, self._vmname))
+                await self.set_hostonly_network(interface_number, first_available_vboxnet)
                 vboxnet = first_available_vboxnet
             else:
-                raise GNS3VMError('VirtualBox host-only network "{}" does not exist, please make the sure the network adapter {} configuration is valid for "{}"'.format(vboxnet,
-                                                                                                                                                                         hostonly_interface_number,
-                                                                                                                                                                         self._vmname))
+                try:
+                    await self._execute("hostonlyif", ["create"])
+                except GNS3VMError:
+                    raise GNS3VMError('VirtualBox host-only network "{}" does not exist and could not be automatically created, please make the sure the network adapter {} configuration is valid for "{}"'.format(
+                        vboxnet,
+                        interface_number,
+                        self._vmname
+                    ))
 
-        if not (await self._check_dhcp_server(vboxnet)):
-            raise GNS3VMError('DHCP must be enabled on VirtualBox host-only network "{}"'.format(vboxnet))
+        if backend_type == "hostonlyadapter" and not (await self._check_dhcp_server(vboxnet)):
+            try:
+                await self._add_dhcp_server(vboxnet)
+            except GNS3VMError as e:
+                raise GNS3VMError("Could not add DHCP server for vboxnet {}: {}, please configure manually".format(vboxnet, e))
 
         vm_state = await self._get_state()
         log.info('"{}" state is {}'.format(self._vmname, vm_state))
@@ -286,7 +347,7 @@ class VirtualBoxGNS3VM(BaseGNS3VM):
         except OSError as e:
             raise GNS3VMError("Error while getting random port: {}".format(e))
 
-        if (await self._check_vbox_port_forwarding()):
+        if await self._check_vbox_port_forwarding():
             # delete the GNS3VM NAT port forwarding rule if it exists
             log.info("Removing GNS3VM NAT port forwarding rule from interface {}".format(nat_interface_number))
             await self._execute("controlvm", [self._vmname, "natpf{}".format(nat_interface_number), "delete", "GNS3VM"])
@@ -296,7 +357,7 @@ class VirtualBoxGNS3VM(BaseGNS3VM):
         await self._execute("controlvm", [self._vmname, "natpf{}".format(nat_interface_number),
                                                "GNS3VM,tcp,{},{},,{}".format(ip_address, api_port, self.port)])
 
-        self.ip_address = await self._get_ip(hostonly_interface_number, api_port)
+        self.ip_address = await self._get_ip(interface_number, api_port)
         log.info("GNS3 VM has been started with IP {}".format(self.ip_address))
         self.running = True
 

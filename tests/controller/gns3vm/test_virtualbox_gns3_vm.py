@@ -16,7 +16,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import pytest
-import asyncio
 
 from tests.utils import asyncio_patch, AsyncioMagicMock
 from gns3server.utils.asyncio import wait_run_in_executor
@@ -26,7 +25,7 @@ from gns3server.controller.gns3vm.virtualbox_gns3_vm import VirtualBoxGNS3VM
 
 
 @pytest.fixture
-async def gns3vm(loop, controller):
+async def gns3vm(controller):
 
     vm = VirtualBoxGNS3VM(controller)
     vm.vmname = "GNS3 VM"

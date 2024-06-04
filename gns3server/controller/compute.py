@@ -312,7 +312,7 @@ class Compute:
         url = self._getUrl("/projects/{}/files/{}".format(project.id, path))
         response = await self._session().request("GET", url, auth=self._auth)
         if response.status == 404:
-            raise aiohttp.web.HTTPNotFound(text="{} not found on compute".format(path))
+            raise aiohttp.web.HTTPNotFound(text="File '{}' not found on compute".format(path))
         return response
 
     async def download_image(self, image_type, image):
@@ -327,7 +327,7 @@ class Compute:
         url = self._getUrl("/{}/images/{}".format(image_type, image))
         response = await self._session().request("GET", url, auth=self._auth)
         if response.status == 404:
-            raise aiohttp.web.HTTPNotFound(text="{} not found on compute".format(image))
+            raise aiohttp.web.HTTPNotFound(text="Image '{}' not found on compute".format(image))
         return response
 
     async def http_query(self, method, path, data=None, dont_connect=False, **kwargs):
@@ -367,9 +367,6 @@ class Compute:
                 log.warning("Cannot connect to compute '{}': {}".format(self._id, e))
                 # Try to reconnect after 5 seconds if server unavailable only if not during tests (otherwise we create a ressource usage bomb)
                 if not hasattr(sys, "_called_from_test") or not sys._called_from_test:
-                    if self.id != "local" and self.id != "vm" and not self._controller.compute_has_open_project(self):
-                        log.warning("Not reconnecting to compute '{}' because there is no project opened on it".format(self._id))
-                        return
                     self._connection_failure += 1
                     # After 5 failure we close the project using the compute to avoid sync issues
                     if self._connection_failure == 10:
@@ -453,7 +450,7 @@ class Compute:
                         elif response.type == aiohttp.WSMsgType.CLOSED:
                             pass
                         break
-        except aiohttp.client_exceptions.ClientResponseError as e:
+        except aiohttp.ClientError as e:
             log.error("Client response error received on compute '{}' WebSocket '{}': {}".format(self._id, ws_url,e))
         finally:
             self._connected = False
@@ -487,7 +484,7 @@ class Compute:
         return self._getUrl(path)
 
     async def _run_http_query(self, method, path, data=None, timeout=20, raw=False):
-        with async_timeout.timeout(timeout):
+        async with async_timeout.timeout(delay=timeout):
             url = self._getUrl(path)
             headers = {}
             headers['content-type'] = 'application/json'

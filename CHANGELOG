@@ -1,5 +1,324 @@
 # Change Log
 
+## 2.2.47 15/05/2024
+
+* Fix update-bundled-web-ui.sh script
+* Bundle web-ui v2.2.47
+* Change sentry-sdk version
+* Upgrade aiohttp, sentry-sdk and truststore
+* Upgrade jsonschema and aiohttp
+* Drop Python 3.7
+* Remove dev requirements for Python 3.6
+* Do not run Docker VM tests on Windows
+* Do not wait for the server to close when shutting down.
+* Fix test create image with not supported characters by filesystem. Fixes #2375
+* Allow listing x86_64 IOU images. Fixes #2376
+* Upgrade Jinja2 to version 3.1.4. Fixes #2378
+* Fix link capture for ATM switch. Fixes https://github.com/GNS3/gns3-gui/issues/3570
+* Fix tests after updating error message when busybox is not installed.
+* Add more details to error message when busybox is not installed. Fixes https://github.com/GNS3/gns3-gui/issues/3569
+* Fix invalid escape sequences
+* Add NAT symbols
+* Fix cannot stop Docker VM while console connection is still active.
+* Upgrade sentry-sdk to version 1.40.6
+
+## 2.2.46 26/02/2024
+
+* Bundle web-ui v2.2.46
+* Save empty directories when exporting a project
+* Backport from v3: install Docker resources in a writable location at runtime.
+* Use Docker API v1.24 to get version.
+* Drop support for Python 3.6
+* Address the telnet console bug.
+* Update welcome.py
+* Update remote-install.sh
+* Use Python 3.8 to publish API doc
+* Upgrade sentry-sdk, psutil and distro dependencies
+
+## 2.2.45 12/01/2024
+
+* Bundle web-ui v2.2.45
+* Fix mouse offset issues with VNC in Qemu. Fixes #2335
+* Add project.created, project.opened and project.deleted controller notification stream. Move project.updated and project.closed from project notification to controller notification stream.
+* Do not stop searching for Qemu binaries if one binary cannot be executed. Ref #2306
+* Fix Ethernet switch and Ethernet hub port validations. Fixes #2334
+* Update CORS policy
+* Add custom executable paths on Windows
+* Upgrade sentry-sdk and aiohttp
+
+## 2.2.44.1 07/11/2023
+
+* Catch exceptions when computing image checksums. Ref https://github.com/GNS3/gns3-server/issues/2228
+* Add freeze_support() for multiprocessing
+
+## 2.2.44 06/11/2023
+
+* Bundle web-ui v2.2.44
+* Non-blocking checksums computation when server starts. Fixes #2228
+* Fix timeout issue when creating Qemu disk image. Fixes https://github.com/GNS3/gns3-server/issues/2313
+* Support for web socket console over HTTPS
+* Add back script create_cert.sh
+* Allow disabling hardware virtualization check
+* Fix L2IOU "failed code signing checks" when IOU base file name is >= 63 characters
+* Change "ip cef" to "no ip cef" in IOU default configs. Fixes #2298
+* Add Qemu IGB network device
+* Add Python 3.12 support.
+* Fix issue with importlib.resources.files() and Python 3.9
+
+## 2.2.43 19/09/2023
+
+* Force English output for VBoxManage. Fixes #2266
+* Automatically add vboxnet and DHCP server if not present for VirtualBox GNS3 VM. Ref #2266
+* Fix issue with controller config saved before checking current version with previous one
+* Prevent X11 socket file to be modified by Docker container
+* Use the user data dir to store built-in appliances
+* Catch ConnectionResetError exception when client disconnects
+* Upgrade to PyQt 5.15.9 and pywin32
+
+## 2.2.42 09/08/2023
+
+* Bundle web-ui v2.2.42
+* Handle API version key in VirtualBox 7. Fixes #2266
+* Enable system certificate store for SSL connections
+* Use DEFAULT_BUFFER_SIZE for md5sum
+* Fix version check when installing appliances. Ref https://github.com/GNS3/gns3-gui/issues/3486
+* Allow connection to ws console over IPv6. Fixes https://github.com/GNS3/gns3-web-ui/issues/1400
+* Support for Python 3.12
+* Remove import urllib3 and let sentry_sdk import and patch it. Fixes https://github.com/GNS3/gns3-gui/issues/3498
+
+## 2.2.41 12/07/2023
+
+* Bundle web-ui v2.2.41
+* Catch urllib3 exceptions when sending crash report. Ref https://github.com/GNS3/gns3-gui/issues/3483
+* Only fetch Qemu version once when starting Qemu + only add speed/duplex for virtio-net-pci with Qemu version >= 2.12
+* Use recent OVMF firmware (stable-202305) and use flash drives to configure Qemu command line
+* Remove the useless executable permissions to the file gns3server/disks/empty8G.qcow2
+* Backport UEFI boot mode support for Qemu VMs
+
+## 2.2.40.1 10/06/2023
+
+* Re-bundle Web-Ui v2.2.40. Fixes #2239
+
+## 2.2.40 06/06/2023
+
+* qemu : with network adapter_type equal to "virtio-net-pci", fix the speed to 10000 and duplex to full. 	The values are actually fake. 	(https://github.com/GNS3/gns3-gui/issues/3476)
+* Parse name for request to node creation from template
+* Remove Xvfb + x11vnc support
+* Require a Host-Only Network to start the VirtualBox GNS3 VM on macOS with VirtualBox 7
+* Properly catch aiohttp client exception. Ref #2228
+* Catch ConnectionResetError when waiting for the wrap console
+* Fix open IPv6 address for HTTP consoles on controller. Fixes https://github.com/GNS3/gns3-gui/issues/3448
+* Use proc.communicate() when checking for subprocess output As recommended in https://docs.python.org/3/library/asyncio-subprocess.html#asyncio.subprocess.Process.stderr
+
+## 2.2.39 08/05/2023
+
+* Install web-ui v2.2.39
+* Add generic function to install resource files
+* Install empty Qemu disks on first start
+* Check for colon in project name. Fixes #2203
+* Upgrade distro and aiohttp dependencies
+
+## 2.2.38 28/02/2023
+
+* Bundle web-ui v2.2.38
+* Fix c7200_i0_log.txt is created in the current directory. Fixes #2191
+* Check swtpm version and start swtpm before qemu
+* Fix broken websocket console with Python 3.11
+* Fix "cannot reopen console". Ref #2182
+* Fix Qemu binary not set when adding appliance from template
+
+## 2.2.37 25/01/2023
+
+* Fix link communication issues on Windows with uBridge
+* Fix StreamWriter doesn't have the wait_closed() method in Python3.6. Fixes #2170
+* Install built-in appliances when no previous version has been detected. Fixes #2168
+* Update documentation to install gns3-server. Fixes #2124
+* Give udhcpc executable right. Fixes #2159
+
+## 2.2.36 04/01/2023
+
+* Install web-ui v2.2.36
+* Add Trusted Platform Module (TPM) support for Qemu VMs
+* Require Dynamips 0.2.23 and bind Dynamips hypervisor on 127.0.0.1
+* Delete the built-in appliance directory before installing updated files
+* Use a stock BusyBox for the Docker integration
+* Overwrite built-in appliance files when starting a more recent version of the server
+* Fix reset console. Fixes #1619
+* Only use importlib_resources for Python <= 3.9. Fixes #2147
+* Support when the user field defined in Docker container is an ID. Fixes #2134
+
+## 2.2.35.1 10/11/2022
+
+* Re-release Web-Ui v2.2.35
+
+## 2.2.35 08/11/2022
+
+* Release web-ui v2.2.35
+* Fix issues with VMnet interface on macOS >= 11.0. Ref #3381
+* Use importlib_resources instead of pkg_resources and install built-in appliances in config dir.
+* Fix console vnc don't use configured ports in some case. Fixes #2111
+* Add missing VMware settings in gns3_server.conf
+* Make version PEP 440 compliant
+* Support for Python 3.11
+* Allow for more dependency versions at patch level
+* Replace deprecated distro.linux_distribution() call
+* Update gns3.service.systemd
+* gns3.service.openrc: make openrc script posix compliant
+* fix: use exact match to find interface in windows to avoid get wrong interface
+
+## 2.2.34 28/08/2022
+
+* Use original $PATH in init.sh for Docker containers. Ref #2069
+* Support pytest-asyncio 0.19.0
+* Upgrade dev dependencies and fix issues after upgrading to pytest-aiohttp v1.0.4
+* Update compute.py
+
+## 2.2.33.1 21/06/2022
+
+* Add missing file for web-ui v2.2.33
+
+## 2.2.33 20/06/2022
+
+* Release web-ui v2.2.33
+* Upgrade sentry-sdk and psutil
+* Remove parameter "Name" not useful to create a Docker container
+* Support to reset all console connections. Ref https://github.com/GNS3/gns3-server/issues/1619
+* Config option to disable built-in templates
+* Add hostname entry to sample network config for Docker nodes. Fixes #2039
+* Run Xtigervnc with MIT-SHM extension disabled for Docker VNC console support. Fixes #2071
+* Added OpenRC init script
+
+## 2.2.32 27/04/2022
+
+* Docker: load custom interface files from /etc/network/interfaces (commented by default). Ref #2052
+* Release web UI 2.2.32
+* Create `/etc/network/interfaces.d` in Docker container. Fixes #2052
+* Prettify Docker '/etc/network/interfaces' file. Ref #2040
+* Use public DSNs for Sentry
+* Fix VMware Fusion VM does not start on macOS >= 11. Fixes #2027
+* Include conf file in MANIFEST.in Ref #2044
+* Use Python 3.7 to publish API documentation
+* Development on 2.2.32dev1
+
+## 2.2.31 26/02/2022
+
+* Install setuptools v59.6.0 when using Python 3.6
+
+## 2.2.30 25/02/2022
+
+* Support GNS3 variables in Docker environment variables. Fixes #2033
+* Release web UI 2.2.30
+* Set setuptools to v60.6.0
+* qemu_vm.py Linked node test.
+* Fix dead link in README.rst Fixes #2022
+
+## 2.2.29 08/01/2022
+
+* Release web UI 2.2.29
+* Add NixOS in list of distributions with a package
+
+## 2.2.28 15/12/2021
+
+* Fix compute Docker test. Fixes #2003
+* Release web UI 2.2.28
+* Simpler Systemd service file. Ref #1996
+
+## 2.2.27 12/11/2021
+
+* Release web UI 2.2.27
+* Fix unhandled KeyError exception when starting Docker container. Ref #1991
+
+## 2.2.26 08/10/2021
+
+* Release web UI 2.2.26
+* Sort symbols by theme. Fixes https://github.com/GNS3/gns3-gui/issues/3230
+* Fix memory percentage left warning. Fixes #1966
+* Update affinity symbols. Fixes https://github.com/GNS3/gns3-gui/issues/3232
+
+## 2.2.25 14/09/2021
+
+* Release web UI 2.2.25
+* Fix issue preventing to use custom nested symbols. Fixes #1969
+* Updated affinity symbols
+* Fix qemu-img rebase code to support Qemu 6.1. Ref https://github.com/GNS3/gns3-server/pull/1962
+* Reinstate qemu-img rebase
+* Return disk usage for partition that contains the default project directory. Fixes #1947
+* Explicitly require setuptools, utils/get_resource.py imports pkg_resources
+
+## 2.2.24 25/08/2021
+
+* Release web UI 2.2.24
+* Fix issue when searching for image with relative path. Fixes #1925
+* Fix wrong error when NAT interface is not allowed. Fixes #1943
+* Fix incorrect Qemu binary selected when importing template. Fixes https://github.com/GNS3/gns3-gui/issues/3216
+* Fix error when updating a link style. Fixes https://github.com/GNS3/gns3-gui/issues/2461
+* Some fixes for early support for Python3.10 The loop parameter has been removed from most of asyncio‘s high-level API following deprecation in Python 3.8.
+* Early support for Python3.10 Fixes #1940
+* Bump pywin32 from 300 to 301
+
+## 2.2.23 05/08/2021
+
+* Release web UI 2.2.23
+* Fix hostname inconsistencies during script execution
+* Add option `--without-kvm`
+* Add a `reload` server endpoint. Fixes #1926
+* Handle -no-kvm param deprecated in Qemu >= v5.2
+* Fix binary websocket access to the console
+* Change how to generate random MAC addresses
+* setup.py: prevent installing tests directory
+* Support cloning of encrypted qcow2 base image files
+* Fix VMware VM support on Linux and Windows. Fixes #1919
+
+## 2.2.22 10/06/2021
+
+* Fix VMware support on macOS BigSur
+* Link style support. Fixes https://github.com/GNS3/gns3-gui/issues/2461
+* Release web UI version 2.2.22
+* Preserve auto_start/auto_open/auto_close when restoring snapshot
+* Fix uBridge errors for cloud nodes not visible in logs. Fixes #1895
+* Prevent directory traversal. Fixes #1894
+
+## 2.2.21 10/05/2021
+
+* Release Web-Ui v2.2.21
+* Improvements for get symbol dimensions endpoint. Ref #1885
+
+## 2.2.20 09/04/2021
+
+* Release Web UI version 2.2.20
+* Fix packet capture with HTTPS remote server. Fixes #1882
+* Sync appliance files and remove old ones after sync with online repo. Fixes #1876
+* Upgrade dependencies
+* Fix export for missing files
+* Fix issue when trying to export temporary Dynamips files.
+
+## 2.2.19 05/03/2021
+
+* Launch projects marked for auto open after SIGHUP is received
+* Release Web UI 2.2.19
+* Fix console type error when creating Ethernet switch node. Fixes #1873
+* Upgrade Jinja to version 2.11.3. Fixes #1865
+
+## 2.2.18 16/02/2021
+
+* SIGHUP: remove projects with an empty project directory.
+* Release Web UI 2.2.18
+* Catch OSError exception in psutil. Fixes https://github.com/GNS3/gns3-gui/issues/3127
+* Expose 'auto_open' and 'auto_start' properties in API when creating project. Fixes https://github.com/GNS3/gns3-gui/issues/3119
+* Add mtools package information. Ref https://github.com/GNS3/gns3-gui/issues/3076
+* Fix warning: 'ide-drive' is deprecated when using recent version of Qemu. Fixes https://github.com/GNS3/gns3-gui/issues/3101
+* Fix bug when starting of vpcs stopped with "quit". Fixes https://github.com/GNS3/gns3-gui/issues/3110
+* Fix WinError 0 handling
+* Stop uBridge if VPCS node has been terminated. Ref https://github.com/GNS3/gns3-gui/issues/3110
+* Allow cloned QEMU disk images to be resized before the node starts, by cloning the disk image in response to a resize request instead of waiting until the node starts.
+* Fix(readme): update python version from 3.5.3 to 3.6
+* Use HDD disk image as startup QEMU config disk
+* Create config disk property false by default for Qemu templates
+* Set default disk interface type to "none".
+* Add explicit option to automatically create or not the config disk. Off by default.
+* QEMU config disk support
+
+
 ## 2.2.17 04/12/2020
 
 * Close and remove projects deleted from disks after SIGHUP signal is received.

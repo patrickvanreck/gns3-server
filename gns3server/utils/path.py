@@ -17,6 +17,7 @@
 
 import os
 import aiohttp
+from pathlib import Path
 
 from ..config import Config
 
@@ -37,7 +38,17 @@ def get_default_project_directory():
     return path
 
 
-def check_path_allowed(path):
+def is_safe_path(file_path: str, basedir: str) -> bool:
+    """
+    Check that file path is safe.
+    (the file is stored inside directory or one of its sub-directory)
+    """
+
+    test_path = (Path(basedir) / file_path).resolve()
+    return Path(basedir).resolve() in test_path.resolve().parents
+
+
+def check_path_allowed(path: str):
     """
     If the server is non local raise an error if
     the path is outside project directories
@@ -53,3 +64,16 @@ def check_path_allowed(path):
 
     if "local" in config and config.getboolean("local") is False:
         raise aiohttp.web.HTTPForbidden(text="The path is not allowed")
+
+
+def get_mountpoint(path: str):
+    """
+    Find the mount point of a path.
+    """
+
+    path = os.path.abspath(path)
+    while path != os.path.sep:
+        if os.path.ismount(path):
+            return path
+        path = os.path.abspath(os.path.join(path, os.pardir))
+    return path

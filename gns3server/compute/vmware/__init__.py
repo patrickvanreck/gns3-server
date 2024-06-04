@@ -27,6 +27,7 @@ import asyncio
 import subprocess
 import logging
 import codecs
+import ipaddress
 
 from collections import OrderedDict
 from gns3server.utils.interfaces import interfaces
@@ -51,6 +52,7 @@ class VMware(BaseManager):
         self._vmrun_path = None
         self._host_type = None
         self._vmnets = []
+        self._vmnets_info = {}
         self._vmnet_start_range = 2
         if sys.platform.startswith("win"):
             self._vmnet_end_range = 19
@@ -273,7 +275,7 @@ class VMware(BaseManager):
         else:
             # location on Linux
             vmware_networking_file = "/etc/vmware/networking"
-        vmnet_interfaces = []
+        vmnet_interfaces = {}
         try:
             with open(vmware_networking_file, "r", encoding="utf-8") as f:
                 for line in f.read().splitlines():
@@ -281,7 +283,20 @@ class VMware(BaseManager):
                     if match:
                         vmnet = "vmnet{}".format(match.group(1))
                         if vmnet not in ("vmnet0", "vmnet1", "vmnet8"):
-                            vmnet_interfaces.append(vmnet)
+                            vmnet_interfaces[vmnet] = {}
+            with open(vmware_networking_file, "r", encoding="utf-8") as f:
+                for line in f.read().splitlines():
+                    match = re.search(r"VNET_([0-9]+)_HOSTONLY_SUBNET\s+(.*)", line)
+                    if match:
+                        vmnet = "vmnet{}".format(match.group(1))
+                        if vmnet in vmnet_interfaces.keys():
+                            vmnet_interfaces[vmnet]["subnet"] = match.group(2)
+                    match = re.search(r"VNET_([0-9]+)_HOSTONLY_NETMASK\s+(.*)", line)
+                    if match:
+                        vmnet = "vmnet{}".format(match.group(1))
+                        if vmnet in vmnet_interfaces.keys():
+                            vmnet_interfaces[vmnet]["netmask"] = match.group(2)
+
         except OSError as e:
             raise VMwareError("Cannot open {}: {}".format(vmware_networking_file, e))
         return vmnet_interfaces
@@ -324,14 +339,38 @@ class VMware(BaseManager):
             raise VMwareError("No VMnet interface available between vmnet{} and vmnet{}. Go to preferences VMware / Network / Configure to add more interfaces.".format(self._vmnet_start_range, self._vmnet_end_range))
         return self._vmnets.pop(0)
 
+    def find_bridge_interface(self, vmnet_interface):
+        """
+        Find the bridge interface that is used for the vmnet interface in VMware.
+        """
+
+        if vmnet_interface in self._vmnets_info.keys():
+            subnet = self._vmnets_info[vmnet_interface].get("subnet", None)
+            netmask = self._vmnets_info[vmnet_interface].get("netmask", None)
+            if subnet and netmask:
+                for interface in interfaces():
+                    try:
+                        network = ipaddress.ip_network(f"{subnet}/{netmask}")
+                        ip = ipaddress.ip_address(interface["ip_address"])
+                    except ValueError:
+                        continue
+                    if ip in network:
+                        return interface["name"]
+        return None
+
     def refresh_vmnet_list(self, ubridge=True):
+
+        log.debug("Refreshing VMnet list with uBridge={}".format(ubridge))
 
         if ubridge:
             # VMnet host adapters must be present when uBridge is used
             vmnet_interfaces = self._get_vmnet_interfaces_ubridge()
         else:
             vmnet_interfaces = self._get_vmnet_interfaces()
+            self._vmnets_info = vmnet_interfaces.copy()
+            vmnet_interfaces = list(vmnet_interfaces.keys())
 
+        log.debug("Found {} VMnet interfaces".format(len(vmnet_interfaces)))
         # remove vmnets already in use
         for vmware_vm in self._nodes.values():
             for used_vmnet in vmware_vm.vmnets:
@@ -342,6 +381,7 @@ class VMware(BaseManager):
         # remove vmnets that are not managed
         for vmnet in vmnet_interfaces.copy():
             if vmnet in vmnet_interfaces and self.is_managed_vmnet(vmnet) is False:
+                log.debug("{} is not managed by GNS3".format(vmnet))
                 vmnet_interfaces.remove(vmnet)
 
         self._vmnets = vmnet_interfaces
@@ -661,7 +701,7 @@ class VMware(BaseManager):
             path = ctypes.create_unicode_buffer(ctypes.wintypes.MAX_PATH)
             ctypes.windll.shell32.SHGetFolderPathW(None, 5, None, 0, path)
             documents_folder = path.value
-            return ['{}\My Virtual Machines'.format(documents_folder), '{}\Virtual Machines'.format(documents_folder)]
+            return [r'{}\My Virtual Machines'.format(documents_folder), r'{}\Virtual Machines'.format(documents_folder)]
         elif sys.platform.startswith("darwin"):
             return [os.path.expanduser("~/Documents/Virtual Machines.localized")]
         else:
@@ -734,5 +774,4 @@ class VMware(BaseManager):
 if __name__ == '__main__':
     loop = asyncio.get_event_loop()
     vmware = VMware.instance()
-    print("=> Check version")
     loop.run_until_complete(asyncio.ensure_future(vmware.check_vmware_version()))

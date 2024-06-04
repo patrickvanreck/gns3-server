@@ -1,23 +1,26 @@
 {
+    "appliance_id": "b9ce377f-6a6c-497a-a12d-444936a575c3",
     "name": "FortiManager",
     "category": "guest",
     "description": "FortiManager Security Management appliances allow you to centrally manage any number of Fortinet Network Security devices, from several to thousands, including FortiGate, FortiWiFi, and FortiCarrier.",
     "vendor_name": "Fortinet",
     "vendor_url": "http://www.fortinet.com/",
+    "vendor_logo_url": "https://raw.githubusercontent.com/GNS3/gns3-registry/master/vendor-logos/FortiManager.jpg",
     "documentation_url": "http://docs.fortinet.com/p/inside-fortios",
     "product_name": "FortiManager",
     "product_url": "http://www.fortinet.com/products/fortimanager/virtual-security-management.html",
-    "registry_version": 3,
+    "registry_version": 4,
     "status": "stable",
-    "maintainer": "GNS3 Team",
-    "maintainer_email": "developers@gns3.net",
-    "usage": "Default username is admin, no password is set.",
+    "maintainer": "Ean Towne",
+    "maintainer_email": "ean.fortinet@gmail.com",
+    "usage": "Default username is admin, no password is set.\n\n- Versions lower than 7.0.x require less CPU/RAM\n7.4.x may require 16GB RAM.",
     "symbol": "fortinet.svg",
     "port_name_format": "Port{port1}",
     "qemu": {
         "adapter_type": "virtio-net-pci",
         "adapters": 4,
-        "ram": 1024,
+        "ram": 8192,
+        "cpus": 4,
         "hda_disk_interface": "virtio",
         "hdb_disk_interface": "virtio",
         "arch": "x86_64",
@@ -26,6 +29,97 @@
         "kvm": "allow"
     },
     "images": [
+        {
+            "filename": "FMG_VM64_KVM-v7.4.2-build2397-FORTINET.out.kvm.qcow2",
+            "version": "7.4.2",
+            "md5sum": "36371fbf06210ded57c00b2ff290f2c5",
+            "filesize": 322514944,
+            "download_url": "https://support.fortinet.com/Download/FirmwareImages.aspx"
+        },
+        {
+            "filename": "FMG_VM64_KVM-v7.4.1-build2308-FORTINET.out.kvm.qcow2",
+            "version": "7.4.1",
+            "md5sum": "e542cc8f2d8f46e9c32b783bf31bef39",
+            "filesize": 309387264,
+            "download_url": "https://support.fortinet.com/Download/FirmwareImages.aspx"
+        },
+        {
+            "filename": "FMG_VM64_KVM-v7.2.4-build1460-FORTINET.out.kvm.qcow2",
+            "version": "7.2.4",
+            "md5sum": "98fa9830d9ecb5911a703d03b80026b6",
+            "filesize": 261992448,
+            "download_url": "https://support.fortinet.com/Download/FirmwareImages.aspx"
+        },
+        {
+            "filename": "FMG_VM64_KVM-v7.2.2-build1334-FORTINET.out.kvm.qcow2",
+            "version": "7.2.2",
+            "md5sum": "2ff1298257321cd485d2cad91d6ce510",
+            "filesize": 246083584,
+            "download_url": "https://support.fortinet.com/Download/FirmwareImages.aspx"
+        },
+        {
+            "filename": "FMG_VM64_KVM-v7.2.1-build1215-FORTINET.out.kvm.qcow2",
+            "version": "7.2.1",
+            "md5sum": "1a3eeff1204fa8f4243773f7521e12b5",
+            "filesize": 242814976,
+            "download_url": "https://support.fortinet.com/Download/FirmwareImages.aspx"
+        },
+        {
+            "filename": "FMG_VM64_KVM-v7.0.11-build0595-FORTINET.out.kvm.qcow2",
+            "version": "7.0.11",
+            "md5sum": "7b166222136e26190159f37cccbaab6e",
+            "filesize": 249360384,
+            "download_url": "https://support.fortinet.com/Download/FirmwareImages.aspx"
+        },
+        {
+            "filename": "FMG_VM64_KVM-v7.0.9-build0489-FORTINET.out.kvm.qcow2",
+            "version": "7.0.9",
+            "md5sum": "dbeb6a79b6e421000573dbbbdb50b8b5",
+            "filesize": 247955456,
+            "download_url": "https://support.fortinet.com/Download/FirmwareImages.aspx"
+        },
+        {
+            "filename": "FMG_VM64_KVM-v7.0.6-build0372-FORTINET.out.kvm.qcow2",
+            "version": "7.0.6",
+            "md5sum": "dfa4df9e976ed87e73cb9601a8a70323",
+            "filesize": 239190016,
+            "download_url": "https://support.fortinet.com/Download/FirmwareImages.aspx"
+        },
+        {
+            "filename": "FMG_VM64_KVM-v7.0.5-build0365-FORTINET.out.kvm.qcow2",
+            "version": "7.0.5",
+            "md5sum": "e8b9c992784cea766b52a427a5fe0279",
+            "filesize": 237535232,
+            "download_url": "https://support.fortinet.com/Download/FirmwareImages.aspx"
+        },
+        {
+            "filename": "FMG_VM64_KVM-v6.4.14-build2660-FORTINET.out.kvm.qcow2",
+            "version": "6.4.14",
+            "md5sum": "0fe56e363b166c07b710bde795e36049",
+            "filesize": 219430912,
+            "download_url": "https://support.fortinet.com/Download/FirmwareImages.aspx"
+        },
+        {
+            "filename": "FMG_VM64_KVM-v6.4.12-build2610-FORTINET.out.kvm.qcow2",
+            "version": "6.4.12",
+            "md5sum": "36c0dc531d921e5f1e1e09b030f7c813",
+            "filesize": 219455488,
+            "download_url": "https://support.fortinet.com/Download/FirmwareImages.aspx"
+        },
+        {
+            "filename": "FMG_VM64_KVM-v6-build2288-FORTINET.out.kvm.qcow2",
+            "version": "6.4.5",
+            "md5sum": "bd2791984b03f55a6825297e83c6576a",
+            "filesize": 117014528,
+            "download_url": "https://support.fortinet.com/Download/FirmwareImages.aspx"
+        },
+        {
+            "filename": "FMG_VM64_KVM-v6-build2253-FORTINET.out.kvm.qcow2",
+            "version": "6.4.4",
+            "md5sum": "3554a47fde2dc91d17eec16fd0dc10a3",
+            "filesize": 116621312,
+            "download_url": "https://support.fortinet.com/Download/FirmwareImages.aspx"
+        },
         {
             "filename": "FMG_VM64_KVM-v6-build1183-FORTINET.out.kvm.qcow2",
             "version": "6.2.2",
@@ -162,6 +256,97 @@
         }
     ],
     "versions": [
+        {
+            "name": "7.4.2",
+            "images": {
+                "hda_disk_image": "FMG_VM64_KVM-v7.4.2-build2397-FORTINET.out.kvm.qcow2",
+                "hdb_disk_image": "empty30G.qcow2"
+            }
+        },
+        {
+            "name": "7.4.1",
+            "images": {
+                "hda_disk_image": "FMG_VM64_KVM-v7.4.1-build2308-FORTINET.out.kvm.qcow2",
+                "hdb_disk_image": "empty30G.qcow2"
+            }
+        },
+        {
+            "name": "7.2.4",
+            "images": {
+                "hda_disk_image": "FMG_VM64_KVM-v7.2.4-build1460-FORTINET.out.kvm.qcow2",
+                "hdb_disk_image": "empty30G.qcow2"
+            }
+        },
+        {
+            "name": "7.2.2",
+            "images": {
+                "hda_disk_image": "FMG_VM64_KVM-v7.2.2-build1334-FORTINET.out.kvm.qcow2",
+                "hdb_disk_image": "empty30G.qcow2"
+            }
+        },
+        {
+            "name": "7.2.1",
+            "images": {
+                "hda_disk_image": "FMG_VM64_KVM-v7.2.1-build1215-FORTINET.out.kvm.qcow2",
+                "hdb_disk_image": "empty30G.qcow2"
+            }
+        },
+        {
+            "name": "7.0.11",
+            "images": {
+                "hda_disk_image": "FMG_VM64_KVM-v7.0.11-build0595-FORTINET.out.kvm.qcow2",
+                "hdb_disk_image": "empty30G.qcow2"
+            }
+        },
+        {
+            "name": "7.0.9",
+            "images": {
+                "hda_disk_image": "FMG_VM64_KVM-v7.0.9-build0489-FORTINET.out.kvm.qcow2",
+                "hdb_disk_image": "empty30G.qcow2"
+            }
+        },
+        {
+            "name": "7.0.6",
+            "images": {
+                "hda_disk_image": "FMG_VM64_KVM-v7.0.6-build0372-FORTINET.out.kvm.qcow2",
+                "hdb_disk_image": "empty30G.qcow2"
+            }
+        },
+        {
+            "name": "7.0.5",
+            "images": {
+                "hda_disk_image": "FMG_VM64_KVM-v7.0.5-build0365-FORTINET.out.kvm.qcow2",
+                "hdb_disk_image": "empty30G.qcow2"
+            }
+        },
+        {
+            "name": "6.4.14",
+            "images": {
+                "hda_disk_image": "FMG_VM64_KVM-v6.4.14-build2660-FORTINET.out.kvm.qcow2",
+                "hdb_disk_image": "empty30G.qcow2"
+            }
+        },
+        {
+            "name": "6.4.12",
+            "images": {
+                "hda_disk_image": "FMG_VM64_KVM-v6.4.12-build2610-FORTINET.out.kvm.qcow2",
+                "hdb_disk_image": "empty30G.qcow2"
+            }
+        },
+        {
+            "name": "6.4.5",
+            "images": {
+                "hda_disk_image": "FMG_VM64_KVM-v6-build2288-FORTINET.out.kvm.qcow2",
+                "hdb_disk_image": "empty30G.qcow2"
+            }
+        },
+        {
+            "name": "6.4.4",
+            "images": {
+                "hda_disk_image": "FMG_VM64_KVM-v6-build2253-FORTINET.out.kvm.qcow2",
+                "hdb_disk_image": "empty30G.qcow2"
+            }
+        },
         {
             "name": "6.2.2",
             "images": {

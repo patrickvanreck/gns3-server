@@ -1,4 +1,5 @@
 {
+    "appliance_id": "4f5edc3d-f890-4d22-a17d-608c0dba4002",
     "name": "Zentyal Server",
     "category": "guest",
     "description": "The on-premise Mail and Directory server. Native compatibility with Microsoft Active Directory. You can control your IT infrastructure from a single point of user management, regardless of the different offices and locations your business has. True Microsoft Outlook compatibility. Your users can continue using their favorite email clients, without any service interruptions and without having to install any plug-in or connector.",
@@ -7,7 +8,7 @@
     "documentation_url": "https://wiki.zentyal.org/wiki/Zentyal_Wiki",
     "product_name": "Zentyal Server",
     "product_url": "http://www.zentyal.com/zentyal-server/",
-    "registry_version": 3,
+    "registry_version": 4,
     "status": "stable",
     "maintainer": "GNS3 Team",
     "maintainer_email": "developers@gns3.net",

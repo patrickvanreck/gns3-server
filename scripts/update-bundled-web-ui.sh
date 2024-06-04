@@ -69,21 +69,21 @@ mkdir -p "$GNS3SERVER_DIR/gns3server/static/web-ui/"
 if [ "$CUSTOM_REPO" = false ] ; then
     if [ ! -d /tmp/gns3-web-ui ]; then
         git clone https://github.com/GNS3/gns3-web-ui.git "$REPO_DIR"
-    else
-      cd "$REPO_DIR"
-
-      git checkout master
-      git fetch --tags
-      git pull
-
-      if [[ ! -z "$TAG" ]] 
-      then
-        echo "Switching to tag: ${TAG}"
-        git checkout "tags/${TAG}"
-      fi
-
-      cd "$CURRENT_DIR"
     fi
+
+    cd "$REPO_DIR"
+
+    git checkout 2.2
+    git fetch --tags
+    git pull
+
+    if [[ -n "$TAG" ]]
+    then
+      echo "Switching to tag: ${TAG}"
+      git checkout "tags/${TAG}"
+    fi
+
+    cd "$CURRENT_DIR"
 fi
 
 echo "Current working dir $REPO_DIR"
@@ -96,3 +96,8 @@ yarn ng build --source-map=false --configuration=production --base-href /static/
 cp -R $REPO_DIR/dist/* "$GNS3SERVER_DIR/gns3server/static/web-ui/"
 
 cd "$GNS3SERVER_DIR"
+git add gns3server/static/web-ui/*
+if [[ -n "$TAG" ]]
+then
+  git commit -m "Bundle web-ui ${TAG}"
+fi

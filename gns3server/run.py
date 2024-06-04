@@ -35,7 +35,6 @@ from gns3server.version import __version__
 from gns3server.config import Config
 from gns3server.crash_report import CrashReport
 
-
 import logging
 log = logging.getLogger(__name__)
 
@@ -195,7 +194,7 @@ def kill_ghosts():
             if name in detect_process:
                 proc.kill()
                 log.warning("Killed ghost process %s", name)
-        except (psutil.NoSuchProcess, psutil.AccessDenied):
+        except (OSError, psutil.NoSuchProcess, psutil.AccessDenied):
             pass
 
 
@@ -236,12 +235,19 @@ def run():
             return
         log.info("HTTP authentication is enabled with username '{}'".format(user))
 
-    # we only support Python 3 version >= 3.6
-    if sys.version_info < (3, 6, 0):
-        raise SystemExit("Python 3.6 or higher is required")
+    # we only support Python 3 version >= 3.8
+    if sys.version_info < (3, 8, 0):
+        raise SystemExit("Python 3.8 or higher is required")
 
     user_log.info("Running with Python {major}.{minor}.{micro} and has PID {pid}".format(major=sys.version_info[0], minor=sys.version_info[1],
                                                                                          micro=sys.version_info[2], pid=os.getpid()))
+
+    try:
+        import truststore
+        truststore.inject_into_ssl()
+        log.info("Using system certificate store for SSL connections")
+    except ImportError:
+        pass
 
     # check for the correct locale (UNIX/Linux only)
     locale_check()
@@ -261,7 +267,7 @@ def run():
         server.run()
     except OSError as e:
         # This is to ignore OSError: [WinError 0] The operation completed successfully exception on Windows.
-        if not sys.platform.startswith("win") and not e.winerror == 0:
+        if not sys.platform.startswith("win") or not e.winerror == 0:
             raise
     except Exception as e:
         log.critical("Critical error while running the server: {}".format(e), exc_info=1)

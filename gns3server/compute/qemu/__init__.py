@@ -26,11 +26,15 @@ import sys
 import re
 import subprocess
 
+from ...utils import shlex_quote
 from ...utils.asyncio import subprocess_check_output
+from ...utils.get_resource import get_resource
 from ..base_manager import BaseManager
+from ..error import NodeError, ImageMissingError
 from .qemu_error import QemuError
 from .qemu_vm import QemuVM
 from .utils.guest_cid import get_next_guest_cid
+from .utils.ziputils import unpack_zip
 
 import logging
 log = logging.getLogger(__name__)
@@ -45,6 +49,8 @@ class Qemu(BaseManager):
 
         super().__init__()
         self._guest_cid_lock = asyncio.Lock()
+        self.config_disk = "config.img"
+        self._init_config_disk()
 
     async def create_node(self, *args, **kwargs):
         """
@@ -147,8 +153,6 @@ class Qemu(BaseManager):
             log.debug("Searching for Qemu binaries in '{}'".format(path))
             try:
                 for f in os.listdir(path):
-                    if f.endswith("-spice"):
-                        continue
                     if (f.startswith("qemu-system") or f.startswith("qemu-kvm") or f == "qemu" or f == "qemu.exe") and \
                             os.access(os.path.join(path, f), os.X_OK) and \
                             os.path.isfile(os.path.join(path, f)):
@@ -156,13 +160,20 @@ class Qemu(BaseManager):
                             for arch in archs:
                                 if f.endswith(arch) or f.endswith("{}.exe".format(arch)) or f.endswith("{}w.exe".format(arch)):
                                     qemu_path = os.path.join(path, f)
-                                    version = await Qemu.get_qemu_version(qemu_path)
+                                    try:
+                                        version = await Qemu.get_qemu_version(qemu_path)
+                                    except QemuError as e:
+                                        log.warning(str(e))
+                                        continue
                                     qemus.append({"path": qemu_path, "version": version})
                         else:
                             qemu_path = os.path.join(path, f)
-                            version = await Qemu.get_qemu_version(qemu_path)
+                            try:
+                                version = await Qemu.get_qemu_version(qemu_path)
+                            except QemuError as e:
+                                log.warning(str(e))
+                                continue
                             qemus.append({"path": qemu_path, "version": version})
-
             except OSError:
                 continue
 
@@ -215,12 +226,12 @@ class Qemu(BaseManager):
         else:
             try:
                 output = await subprocess_check_output(qemu_path, "-version", "-nographic")
-                match = re.search("version\s+([0-9a-z\-\.]+)", output)
+                match = re.search(r"version\s+([0-9a-z\-\.]+)", output)
                 if match:
                     version = match.group(1)
                     return version
                 else:
-                    raise QemuError("Could not determine the Qemu version for {}".format(qemu_path))
+                    raise QemuError("Could not determine the Qemu version for '{}'".format(qemu_path))
             except (OSError, subprocess.SubprocessError) as e:
                 raise QemuError("Error while looking for the Qemu version: {}".format(e))
 
@@ -239,9 +250,28 @@ class Qemu(BaseManager):
                 version = match.group(1)
                 return version
             else:
-                raise QemuError("Could not determine the Qemu-img version for {}".format(qemu_img_path))
+                raise QemuError("Could not determine the Qemu-img version for '{}'".format(qemu_img_path))
         except (OSError, subprocess.SubprocessError) as e:
             raise QemuError("Error while looking for the Qemu-img version: {}".format(e))
+
+    @staticmethod
+    async def get_swtpm_version(swtpm_path):
+        """
+        Gets the swtpm version.
+
+        :param swtpm_path: path to swtpm executable.
+        """
+
+        try:
+            output = await subprocess_check_output(swtpm_path, "--version")
+            match = re.search(r"version\s+([\d.]+)", output)
+            if match:
+                version = match.group(1)
+                return version
+            else:
+                raise QemuError("Could not determine the swtpm version for '{}'".format(swtpm_path))
+        except (OSError, subprocess.SubprocessError) as e:
+            raise QemuError("Error while looking for the swtpm version: {}".format(e))
 
     @staticmethod
     def get_haxm_windows_version():
@@ -315,6 +345,8 @@ class Qemu(BaseManager):
             command.append(path)
             command.append("{}M".format(img_size))
 
+            command_string = " ".join(shlex_quote(s) for s in command)
+            log.info("Creating disk image with {}".format(command_string))
             process = await asyncio.create_subprocess_exec(*command)
             await process.wait()
         except (OSError, subprocess.SubprocessError) as e:
@@ -343,3 +375,21 @@ class Qemu(BaseManager):
             log.info("Qemu disk '{}' extended by {} MB".format(path, extend))
         except (OSError, subprocess.SubprocessError) as e:
             raise QemuError("Could not update disk image {}:{}".format(path, e))
+
+    def _init_config_disk(self):
+        """
+        Initialize the default config disk
+        """
+
+        try:
+            self.get_abs_image_path(self.config_disk)
+        except (NodeError, ImageMissingError):
+            config_disk_zip = get_resource("compute/qemu/resources/{}.zip".format(self.config_disk))
+            if config_disk_zip and os.path.exists(config_disk_zip):
+                directory = self.get_images_directory()
+                try:
+                    unpack_zip(config_disk_zip, directory)
+                except OSError as e:
+                    log.warning("Config disk creation: {}".format(e))
+            else:
+                log.warning("Config disk: image '{}' missing".format(self.config_disk))

@@ -1,11 +1,12 @@
 {
+    "appliance_id": "99920801-829d-4689-8231-7183c21ff878",
     "name": "AAA",
     "category": "guest",
     "description": "This appliance provides RADIUS and TACACS+ services with preconfigured users and groups.",
     "vendor_name": "Ubuntu",
     "vendor_url": "https://www.ubuntu.com/",
     "product_name": "AAA",
-    "registry_version": 3,
+    "registry_version": 4,
     "status": "stable",
     "maintainer": "Andras Dosztal",
     "maintainer_email": "developers@gns3.net",

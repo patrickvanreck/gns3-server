@@ -32,7 +32,6 @@ import distro
 
 from .version import __version__, __version_info__
 from .config import Config
-from .utils.get_resource import get_resource
 
 import logging
 log = logging.getLogger(__name__)
@@ -58,7 +57,7 @@ class CrashReport:
     Report crash to a third party service
     """
 
-    DSN = "https://8c30fa3843ab4cdc977e4710cefac0b1:212efa491b1b459f87a0242cb2598e0c@o19455.ingest.sentry.io/38482"
+    DSN = "https://ec32b24c329df619c8b9b1c58cfedcdb@o19455.ingest.us.sentry.io/38482"
     _instance = None
 
     def __init__(self):
@@ -71,29 +70,23 @@ class CrashReport:
         sentry_uncaught.disabled = True
 
         if SENTRY_SDK_AVAILABLE:
-            cacert = None
-            if hasattr(sys, "frozen"):
-                cacert_resource = get_resource("cacert.pem")
-                if cacert_resource is not None and os.path.isfile(cacert_resource):
-                    cacert = cacert_resource
-                else:
-                    log.error("The SSL certificate bundle file '{}' could not be found".format(cacert_resource))
-
             # Don't send log records as events.
             sentry_logging = LoggingIntegration(level=logging.INFO, event_level=None)
-
-            sentry_sdk.init(dsn=CrashReport.DSN,
-                            release=__version__,
-                            ca_certs=cacert,
-                            default_integrations=False,
-                            integrations=[sentry_logging])
+            try:
+                sentry_sdk.init(dsn=CrashReport.DSN,
+                                release=__version__,
+                                default_integrations=False,
+                                integrations=[sentry_logging])
+            except Exception as e:
+                log.error("Crash report could not be sent: {}".format(e))
+                return
 
             tags = {
                 "os:name": platform.system(),
                 "os:release": platform.release(),
                 "os:win_32": " ".join(platform.win32_ver()),
                 "os:mac": "{} {}".format(platform.mac_ver()[0], platform.mac_ver()[2]),
-                "os:linux": " ".join(distro.linux_distribution()),
+                "os:linux": distro.name(pretty=True),
 
             }
 

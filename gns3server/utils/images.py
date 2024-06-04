@@ -20,17 +20,17 @@ import hashlib
 
 from ..config import Config
 from . import force_unix_path
-
+from io import DEFAULT_BUFFER_SIZE
 
 import logging
 log = logging.getLogger(__name__)
 
 
-def list_images(type):
+def list_images(emulator_type):
     """
-    Scan directories for available image for a type
+    Scan directories for available image for a given emulator type
 
-    :param type: emulator type (dynamips, qemu, iou)
+    :param emulator_type: emulator type (dynamips, qemu, iou)
     """
     files = set()
     images = []
@@ -38,10 +38,10 @@ def list_images(type):
     server_config = Config.instance().get_section_config("Server")
     general_images_directory = os.path.expanduser(server_config.get("images_path", "~/GNS3/images"))
 
-    # Subfolder of the general_images_directory specific to this VM type
-    default_directory = default_images_directory(type)
+    # Subfolder of the general_images_directory specific to this emulator type
+    default_directory = default_images_directory(emulator_type)
 
-    for directory in images_directories(type):
+    for directory in images_directories(emulator_type):
 
         # We limit recursion to path outside the default images directory
         # the reason is in the default directory manage file organization and
@@ -53,13 +53,12 @@ def list_images(type):
         directory = os.path.normpath(directory)
         for root, _, filenames in _os_walk(directory, recurse=recurse):
             for filename in filenames:
-                path = os.path.join(root, filename)
                 if filename not in files:
                     if filename.endswith(".md5sum") or filename.startswith("."):
                         continue
-                    elif ((filename.endswith(".image") or filename.endswith(".bin")) and type == "dynamips") \
-                            or ((filename.endswith(".bin") or filename.startswith("i86bi")) and type == "iou") \
-                            or (not filename.endswith(".bin") and not filename.endswith(".image") and type == "qemu"):
+                    elif ((filename.endswith(".image") or filename.endswith(".bin")) and emulator_type == "dynamips") \
+                            or ((filename.endswith(".bin") or filename.startswith("i86bi")) and emulator_type == "iou") \
+                            or (not filename.endswith(".bin") and not filename.endswith(".image") and emulator_type == "qemu"):
                         files.add(filename)
 
                         # It the image is located in the standard directory the path is relative
@@ -69,12 +68,13 @@ def list_images(type):
                             path = os.path.relpath(os.path.join(root, filename), default_directory)
 
                         try:
-                            if type in ["dynamips", "iou"]:
+                            if emulator_type in ["dynamips", "iou"]:
                                 with open(os.path.join(root, filename), "rb") as f:
                                     # read the first 7 bytes of the file.
                                     elf_header_start = f.read(7)
-                                # valid IOS images must start with the ELF magic number, be 32-bit, big endian and have an ELF version of 1
-                                if not elf_header_start == b'\x7fELF\x01\x02\x01' and not elf_header_start == b'\x7fELF\x01\x01\x01':
+                                # valid IOU or IOS images must start with the ELF magic number, be 32-bit or 64-bit,
+                                # little endian and have an ELF version of 1
+                                if elf_header_start != b'\x7fELF\x02\x01\x01' and elf_header_start != b'\x7fELF\x01\x01\x01':
                                     continue
 
                             images.append({
@@ -102,34 +102,34 @@ def _os_walk(directory, recurse=True, **kwargs):
         yield directory, [], files
 
 
-def default_images_directory(type):
+def default_images_directory(emulator_type):
     """
     :returns: Return the default directory for a node type
     """
     server_config = Config.instance().get_section_config("Server")
     img_dir = os.path.expanduser(server_config.get("images_path", "~/GNS3/images"))
-    if type == "qemu":
+    if emulator_type == "qemu":
         return os.path.join(img_dir, "QEMU")
-    elif type == "iou":
+    elif emulator_type == "iou":
         return os.path.join(img_dir, "IOU")
-    elif type == "dynamips":
+    elif emulator_type == "dynamips":
         return os.path.join(img_dir, "IOS")
     else:
-        raise NotImplementedError("%s node type is not supported", type)
+        raise NotImplementedError("%s node type is not supported", emulator_type)
 
 
-def images_directories(type):
+def images_directories(emulator_type):
     """
     Return all directories where we will look for images
     by priority
 
-    :param type: Type of emulator
+    :param emulator_type: Type of emulator
     """
     server_config = Config.instance().get_section_config("Server")
 
     paths = []
     img_dir = os.path.expanduser(server_config.get("images_path", "~/GNS3/images"))
-    type_img_directory = default_images_directory(type)
+    type_img_directory = default_images_directory(emulator_type)
     try:
         os.makedirs(type_img_directory, exist_ok=True)
         paths.append(type_img_directory)
@@ -167,12 +167,13 @@ def md5sum(path, stopped_event=None):
 
     try:
         m = hashlib.md5()
+        log.debug("Calculating MD5 sum of `{}`".format(path))
         with open(path, 'rb') as f:
             while True:
                 if stopped_event is not None and stopped_event.is_set():
                     log.error("MD5 sum calculation of `{}` has stopped due to cancellation".format(path))
                     return
-                buf = f.read(128)
+                buf = f.read(DEFAULT_BUFFER_SIZE)
                 if not buf:
                     break
                 m.update(buf)
